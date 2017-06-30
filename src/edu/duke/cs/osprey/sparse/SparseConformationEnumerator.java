@@ -38,4 +38,11 @@ public class SparseConformationEnumerator implements ConformationProcessor, Iter
 		
 	}
 
+
+	@Override
+	public boolean recurse () {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }

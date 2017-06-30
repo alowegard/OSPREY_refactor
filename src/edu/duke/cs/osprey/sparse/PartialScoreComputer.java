@@ -11,4 +11,10 @@ public class PartialScoreComputer implements ConformationProcessor {
 		
 	}
 
+	@Override
+	public boolean recurse () {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }

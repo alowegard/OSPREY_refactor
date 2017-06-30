@@ -129,13 +129,16 @@ public class Subproblem {
 	}
 
 
-
+	
 	public void addConformationProcessor(ConformationProcessor processor)
 	{
-		if(leftSubproblem != null)
-			leftSubproblem.addConformationProcessor(processor);
-		if(rightSubproblem != null)
-			rightSubproblem.addConformationProcessor(processor);
+		if(processor.recurse())
+		{
+			if(leftSubproblem != null)
+				leftSubproblem.addConformationProcessor(processor);
+			if(rightSubproblem != null)
+				rightSubproblem.addConformationProcessor(processor);
+		}
 		processors.add(processor);
 	}
 

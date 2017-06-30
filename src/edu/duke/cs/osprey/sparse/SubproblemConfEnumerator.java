@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sparse;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -12,24 +13,49 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 public class SubproblemConfEnumerator implements ConformationProcessor {
 
 	private PartialConformationEnergyFunction energyFunction;
-	private Map<String, PriorityQueue<ScoredAssignment>>[] lambdaHeaps; 
+	private ArrayList<Map<String, PriorityQueue<ScoredAssignment>>> lambdaHeaps; 
 	private Subproblem sourceProblem;
 	private SubproblemConfEnumerator leftSubproblem;
 	private SubproblemConfEnumerator rightSubproblem;
 	private RightConfManager rightConfs;
 	private ChildConfManager childConfs;
+	private static RCTuple emptyConf = new RCTuple();
 	
 	public SubproblemConfEnumerator (Subproblem subproblem, PartialConformationEnergyFunction eFunc) {
 		subproblem.addConformationProcessor(this);
+		addChildProcessors(subproblem, eFunc);
 		energyFunction = eFunc;
 		sourceProblem = subproblem;
+		int subproblemLocalConfs = subproblem.getTotalLocalConformations().intValue();
+		lambdaHeaps = new ArrayList<>();
+		while(lambdaHeaps.size() <= subproblemLocalConfs)
+			lambdaHeaps.add(null);
+	}
+
+	private void addChildProcessors (Subproblem subproblem, PartialConformationEnergyFunction eFunc) {
+		if(subproblem.leftSubproblem != null)
+		{
+			leftSubproblem = new SubproblemConfEnumerator(subproblem.leftSubproblem, eFunc);
+		}
+		if(subproblem.rightSubproblem != null)
+		{
+			rightSubproblem  = new SubproblemConfEnumerator(subproblem.rightSubproblem, eFunc);
+		}
 	}
 
 	@Override
 	public void processConformation (RCTuple conformation) {
+		if(energyFunction == null)
+		{
+			System.out.println("Huh?");
+		}
 		double selfEnergy = energyFunction.computePartialEnergy(conformation);
-		double leftEnergy = leftSubproblem.nextBestEnergy(conformation);
-		double rightEnergy = rightSubproblem.nextBestEnergy(conformation);
+		double leftEnergy = 0;
+		if(leftSubproblem != null)
+			leftEnergy = leftSubproblem.nextBestEnergy(conformation);
+		double rightEnergy = 0;
+		if(rightSubproblem != null)
+			rightEnergy = rightSubproblem.nextBestEnergy(conformation);
 		getHeap(conformation).add(new ScoredAssignment(conformation, selfEnergy, leftEnergy, rightEnergy));
 	}
 	
@@ -58,20 +84,20 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
 		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
 		String RCTupleKey = queryAssignment.toString();
-		if(lambdaHeaps[lambdaHeapIndex] == null)
+		if(lambdaHeaps.size() <= lambdaHeapIndex || lambdaHeaps.get(lambdaHeapIndex) == null)
 		{
 			Map<String, PriorityQueue<ScoredAssignment>> heapMap = new HashMap<>();
-			lambdaHeaps[sourceProblem.mapSubproblemConfToIndex(queryAssignment)] = heapMap;
+			lambdaHeaps.set(lambdaHeapIndex, heapMap);
 		}
-		if(!lambdaHeaps[lambdaHeapIndex].containsKey(RCTupleKey))
+		if(!lambdaHeaps.get(lambdaHeapIndex).containsKey(RCTupleKey))
 			initializeHeap(queryAssignment);
-		return lambdaHeaps[lambdaHeapIndex].get(RCTupleKey);
+		return lambdaHeaps.get(lambdaHeapIndex).get(RCTupleKey);
 	}
 
 	private void initializeHeap (RCTuple queryAssignment) {
 		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
 		String RCTupleKey = queryAssignment.toString(); 
-		Map<String, PriorityQueue<ScoredAssignment>> heapMap = lambdaHeaps[lambdaHeapIndex];
+		Map<String, PriorityQueue<ScoredAssignment>> heapMap = lambdaHeaps.get(lambdaHeapIndex);
 		PriorityQueue<ScoredAssignment> newHeap = new LazyHeap(heapMap.get(RCTupleKey));
 		heapMap.put(RCTupleKey, newHeap);
 	}
@@ -83,7 +109,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 	public boolean hasMoreConformations(RCTuple MAssignment)
 	{
-		return lambdaHeaps[sourceProblem.mapSubproblemConfToIndex(MAssignment)].size() > 0;
+		return lambdaHeaps.get(sourceProblem.mapSubproblemConfToIndex(MAssignment)).size() > 0;
 	}
 	
 	
@@ -251,20 +277,26 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 		public ScoredAssignment poll()
 		{
-			if(size() < 1 || dirty)
-			{
-				cleanAssignment = templateQueue.poll();
-				add(cleanAssignment);
-			}
+			cleanHeap();
 			ScoredAssignment nextBestAssignment = super.poll();
 			if(nextBestAssignment == cleanAssignment)
 				dirty = true;
 			return nextBestAssignment;
 		}
 		
+		private void cleanHeap()
+		{
+			if(size() < 1 || dirty)
+			{
+				cleanAssignment = templateQueue.poll();
+				add(cleanAssignment);
+			}
+		}
+		
 		public ScoredAssignment peek()
 		{
-			return null;
+			cleanHeap();
+			return super.peek();
 		}
 		
 	}
@@ -312,6 +344,15 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		{
 			return new ScoredAssignment(assignment, selfScore, leftScore, rightScore);
 		}
+	}
+
+	public RCTuple nextBestConformation () {
+		return nextBestConformation(emptyConf);
+	}
+
+	@Override
+	public boolean recurse () {
+		return false;
 	}
 }
 

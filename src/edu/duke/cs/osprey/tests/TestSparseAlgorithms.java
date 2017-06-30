@@ -17,9 +17,11 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.sparse.BranchDecomposedProblem;
 import edu.duke.cs.osprey.sparse.BranchTree;
 import edu.duke.cs.osprey.sparse.ConformationProcessor;
+import edu.duke.cs.osprey.sparse.PartialConformationEnergyFunction;
 import edu.duke.cs.osprey.sparse.ResidueInteractionGraph;
 import edu.duke.cs.osprey.sparse.SparseKStarScoreEvaluator;
 import edu.duke.cs.osprey.sparse.Subproblem;
+import edu.duke.cs.osprey.sparse.SubproblemConfEnumerator;
 import edu.duke.cs.osprey.sparse.TreeEdge;
 import edu.duke.cs.osprey.sparse.TreeNode;
 import edu.duke.cs.osprey.tools.ResidueIndexMap;
@@ -266,9 +268,30 @@ public class TestSparseAlgorithms  extends TestCase {
 
 
 	@Test
-	public void testEnumerateConformations() throws Exception
+	public void testEnumerateConformations()
 	{
+		String runName = cfp.getParams().getValue("runName");
+		SearchProblem problem = cfp.getSearchProblem();
+		ConfSpace conformationSpace = problem.confSpace;
 
+
+		String bdFile = "test/1CC8Sparse/"+runName+"_bd";
+
+		BranchTree tree = new BranchTree(bdFile, problem);
+		TreeEdge rootEdge = tree.getRootEdge();
+		rootEdge.compactTree();
+		rootEdge.printTreeMol("");
+		
+
+		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
+		EnergyFunction efunction = searchSpace.fullConfE;
+		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(efunction, conformationSpace);
+		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);
+		sparseProblem.addConformationProcessor(enumerator);
+		sparseProblem.preprocess();
+		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
+		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
+		enumerator.nextBestConformation();
 	}
 
 	@Test
@@ -283,6 +306,11 @@ public class TestSparseAlgorithms  extends TestCase {
 		@Override
 		public void processConformation (RCTuple conformation) {
 			numConfs = numConfs.add(BigInteger.ONE);
+		}
+		
+		public boolean recurse()
+		{
+			return true;
 		}
 		
 	}
