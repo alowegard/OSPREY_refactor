@@ -20,11 +20,16 @@ public class PartialConformationEnergyFunction {
 		conformations = conformationSpace;
 	}
 	
+	public double computePartialEnergy(RCTuple partialAssignment)
+	{
+		return computePartialEnergy(null, partialAssignment);
+	}
 	
 	public double computePartialEnergy(RCTuple priorConformation, RCTuple partialAssignment)
 	{
 		RCTuple combinedAssignment = new RCTuple();
-		combinedAssignment.set(priorConformation);
+		if(priorConformation!=null)
+			combinedAssignment.set(priorConformation);
 		combinedAssignment.set(partialAssignment);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(fullEnergyFunction,conformations,combinedAssignment);
 

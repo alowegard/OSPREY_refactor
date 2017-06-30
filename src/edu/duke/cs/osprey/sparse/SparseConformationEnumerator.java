@@ -11,22 +11,13 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 
 public class SparseConformationEnumerator implements ConformationProcessor, Iterator<RCTuple>{
 	
+	private SubproblemConfEnumerator root;
 	
-	public SparseConformationEnumerator(BranchDecomposedProblem searchProblem)
+	public SparseConformationEnumerator(BranchDecomposedProblem searchProblem, PartialConformationEnergyFunction eFunc)
 	{
-		initializeRecursiveEnumerators(searchProblem);
+		root = new SubproblemConfEnumerator(searchProblem.getRoot(), eFunc);
 	}
 
-	private void initializeRecursiveEnumerators (BranchDecomposedProblem searchProblem) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void processConformation (RCTuple conformation) {
-		// TODO Auto-generated method stub
-		
-	}
 
 	@Override
 	public boolean hasNext () {
@@ -38,6 +29,13 @@ public class SparseConformationEnumerator implements ConformationProcessor, Iter
 	public RCTuple next () {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+
+	@Override
+	public void processConformation (RCTuple conformation) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

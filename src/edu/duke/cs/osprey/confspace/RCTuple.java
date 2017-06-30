@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -55,7 +57,47 @@ public class RCTuple implements Serializable {
     	set(conf);
     }
     
-    public void set(int pos, int rc) {
+    public RCTuple copy() {
+    	RCTuple copy = new RCTuple();
+    	copy.set(this);
+    	return copy;
+	}
+    
+    /**
+     * Combine two RCTuples. Should throw an error and crash if an RC is overwritten with 
+     * different RC.
+     * @param source
+     */
+    public void combineRC(RCTuple source)
+    {
+    	for(int RCIndex = 0; RCIndex < source.size(); RCIndex++)
+    	{
+    		int sourcePos = source.pos.get(RCIndex);
+    		int sourceRC = source.pos.get(RCIndex);
+    		assert(sourceRC != -1); 
+    		
+    		int correspondingRC = lookupRC(sourcePos);
+    		if(correspondingRC != -1 && correspondingRC != sourceRC)
+    		{
+    			System.err.println("Error combining RCs: would overwrite "
+    					+this+" with "+source+", which differs at position "+sourcePos);
+    		}
+    		assert(correspondingRC == -1 || correspondingRC == sourceRC);
+    		pos.set(sourcePos, sourceRC);
+    	}
+    }
+    
+    private int lookupRC(int queryPos)
+    {
+    	for (int i = 0; i < pos.size(); i++){
+    		if(pos.get(i) == queryPos)
+    			return RCs.get(i);
+    	}
+    	return -1;
+    }
+
+
+	public void set(int pos, int rc) {
     	this.pos.clear();
     	this.RCs.clear();
     	
@@ -134,6 +176,10 @@ public class RCTuple implements Serializable {
         }
         
         return ans;
+    }
+    
+    public String toString(){
+    	return stringListing();
     }
     
     

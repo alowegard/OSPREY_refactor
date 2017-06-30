@@ -73,8 +73,27 @@ public class Subproblem {
 		SubspaceRCToPDBRCMap.get(RCSpaceIndex).put(RCSpaceRCIndex, PDBSpaceRCIndex);
 		
 	}
+	
+	public int mapSubproblemConfToIndex(RCTuple conf)
+	{
+		int subproblemIndex = 0;
+		int multiplier = 1;
+		for(int tupleIndex = 0; tupleIndex < conf.size(); tupleIndex++)
+		{
+			int pos = conf.pos.get(tupleIndex);
+			int RC = conf.RCs.get(tupleIndex);
+			if(MULambdaSet.contains(pos))
+			{
+				int PDBIndex = residueIndexMap.designIndexToPDBIndex(pos);
+				int subspaceRCIndex = getRCSpaceRCIndex(PDBIndex, RC);
+				subproblemIndex += subspaceRCIndex*multiplier;
+				multiplier *= localConfSpace.getNum(pos);
+			}
+		}
+		return subproblemIndex;
+	}
 
-	private int mapSubproblemConfToIndex(int[] localConf)
+	public int mapSubproblemConfToIndex(int[] localConf)
 	{
 		int subproblemIndex = 0;
 		int multiplier = 1;
@@ -139,8 +158,11 @@ public class Subproblem {
 	public BigInteger getSubtreeTESS()
 	{
 		BigInteger numConformations = getTotalLocalConformations();
-		numConformations = numConformations.add(leftSubproblem.getSubtreeTESS());
-		numConformations = numConformations.add(rightSubproblem.getSubtreeTESS());
+
+		if(leftSubproblem != null)
+			numConformations = numConformations.add(leftSubproblem.getSubtreeTESS());
+		if(rightSubproblem != null)
+			numConformations = numConformations.add(rightSubproblem.getSubtreeTESS());
 		return numConformations;
 	}
 

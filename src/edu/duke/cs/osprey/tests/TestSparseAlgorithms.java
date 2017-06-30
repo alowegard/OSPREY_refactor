@@ -195,15 +195,6 @@ public class TestSparseAlgorithms  extends TestCase {
 		EnergyFunction efunction = problem.fullConfE;
 		ConfSpace conformationSpace = problem.confSpace;
 
-		String[] args = new String[]{"test/1CC8Sparse/"+runName, "test/1CC8Sparse/"+runName+"_bd"};
-		long startBD = System.currentTimeMillis();
-		BranchDecomposition.main(args);
-		long endBD = System.currentTimeMillis();
-		long BDTime = endBD - startBD;
-
-		System.out.println("Branch Decomposition generation time: "+BDTime);
-		long start = System.currentTimeMillis();
-		System.out.println("Branch Decomposition generated. Calculating GMEC...");
 
 		String bdFile = "test/1CC8Sparse/"+runName+"_bd";
 
@@ -251,23 +242,17 @@ public class TestSparseAlgorithms  extends TestCase {
 		rootEdge.printTreeMol("");
 		
 
-		RCTuple initialConf = new RCTuple();
-		for(int i = 0; i < problem.confSpace.numPos/2; i++)
-		{
-			int RCAssigned = (int)(Math.random()*problem.confSpace.posFlex.get(i).RCs.size());
-			initialConf = initialConf.addRC(i, RCAssigned);
-		}
-		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap, initialConf);
+		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
 		ConformationCounter counter = new ConformationCounter();
 		sparseProblem.addConformationProcessor(counter);
 		sparseProblem.preprocess();
-		BigInteger totalConfs = conformationSpace.getNumConformations();
+		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
-		if(!counter.numConfs.equals(subproblemConfs))
+		if(!counter.numConfs.equals(totalConfs))
 		{
-			System.err.println("Conformations not processed in subproblem: processed "+counter.numConfs+", expected "+subproblemConfs);
+			System.err.println("Conformations not processed in subproblem: processed "+counter.numConfs+", expected "+totalConfs);
 		}
-		//assert(counter.numConfs.equals(subproblemConfs));
+		assert(counter.numConfs.equals(totalConfs));
 		System.out.println("Num confs processed: "+counter.numConfs);
 		System.out.println("Num subproblem confs possible: "+subproblemConfs);
 		System.out.println("Num confs possible: "+totalConfs);
