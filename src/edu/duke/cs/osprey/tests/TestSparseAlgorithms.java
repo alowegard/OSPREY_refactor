@@ -288,11 +288,17 @@ public class TestSparseAlgorithms  extends TestCase {
 		EnergyFunction efunction = searchSpace.fullConfE;
 		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(efunction, conformationSpace);
 		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);
-		sparseProblem.addConformationProcessor(enumerator);
 		sparseProblem.preprocess();
 		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
-		enumerator.nextBestConformation();
+		while(enumerator.hasMoreConformations())
+		{
+		double nextBestEnergy = enumerator.nextBestEnergy();
+		RCTuple nextBestConf = enumerator.nextBestConformation();
+		System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
+		double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
+		System.out.println("True energy: "+trueEnergy);
+		}
 	}
 
 	@Test

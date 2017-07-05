@@ -25,13 +25,21 @@ public class PartialConformationEnergyFunction {
 		return computePartialEnergy(null, partialAssignment);
 	}
 	
+	public double computePartialEnergyGivenPriorConformation(RCTuple priorConformation, RCTuple partialAssignment)
+	{
+		return 0;
+	}
+	
 	public double computePartialEnergy(RCTuple priorConformation, RCTuple partialAssignment)
 	{
 		RCTuple combinedAssignment = new RCTuple();
 		if(priorConformation!=null)
-			combinedAssignment.set(priorConformation);
-		combinedAssignment.set(partialAssignment);
+			combinedAssignment = combinedAssignment.combineRC(priorConformation);
+		combinedAssignment = combinedAssignment.combineRC(partialAssignment);
+		System.out.println("Energy:"+fullEnergyFunction.getEnergy());
+
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(fullEnergyFunction,conformations,combinedAssignment);
+		System.out.println("Energy:"+fullEnergyFunction.getEnergy());
 
         DoubleMatrix1D bestDOFVals;
 
@@ -42,8 +50,9 @@ public class PartialConformationEnergyFunction {
         else//molecule is already in the right, rigid conformation
             bestDOFVals = DoubleFactory1D.dense.make(0);
 
+        System.out.println("Energy:"+fullEnergyFunction.getEnergy());
 
-        return mof.getValue(bestDOFVals);
+        return mof.getEnergyAndReset(bestDOFVals);
 	}
 
 }

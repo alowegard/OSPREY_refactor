@@ -21,6 +21,7 @@ public class RCTuple implements Serializable {
 	//a tuple of RCs
     public ArrayList<Integer> pos;//which flexible positions
     public ArrayList<Integer> RCs;//the RCs themselves (residue-specific numbering, as in the TupleMatrices)
+    private boolean immutable = false;
     
     // A non-painfully annoying parallel array implemtation of an ordered set of ordered pairs.
     private ArrayList<RCPair> RCPairs = new ArrayList<>();;
@@ -28,6 +29,13 @@ public class RCTuple implements Serializable {
     
     public RCTuple(){
         //empty pos, RCs (basically tuple of nothing
+        pos = new ArrayList<>();
+        RCs = new ArrayList<>();
+    }
+    
+    public RCTuple(boolean immutable){
+        //empty pos, RCs (basically tuple of nothing
+    	this.immutable = immutable;
         pos = new ArrayList<>();
         RCs = new ArrayList<>();
     }
@@ -72,8 +80,9 @@ public class RCTuple implements Serializable {
      * different RC.
      * @param source
      */
-    public void combineRC(RCTuple source)
+    public RCTuple combineRC(RCTuple source)
     {
+    	RCTuple output = copy();
     	for(int RCIndex = 0; RCIndex < source.size(); RCIndex++)
     	{
     		int sourcePos = source.pos.get(RCIndex);
@@ -89,10 +98,11 @@ public class RCTuple implements Serializable {
     		assert(correspondingRC == -1 || correspondingRC == sourceRC);
     		if(correspondingRC == -1)
     		{
-    			pos.add(sourcePos);
-    			RCs.add(sourceRC);
+    			output.pos.add(sourcePos);
+    			output.RCs.add(sourceRC);
     		}
     	}
+    	return output;
     }
     
     private int lookupRC(int queryPos)

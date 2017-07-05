@@ -58,7 +58,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 	@Override
 	public void processConformation (RCTuple conformation) {
-		System.out.println("Processing "+conformation);
 		double selfEnergy = energyFunction.computePartialEnergy(conformation);
 		double leftEnergy = 0;
 		if(leftSubproblem != null)
@@ -66,12 +65,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		double rightEnergy = 0;
 		if(rightSubproblem != null)
 			rightEnergy = rightSubproblem.nextBestEnergy(conformation);
-		if(sourceProblem.printTreeDesign().equals("[2, ] - L Set:[2, ] - M Set:[1, 3, ]"))
-		{
-			System.out.println("Debug this node.");
-		}
+
 		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
-		templateHeap.add(new ScoredAssignment(conformation, selfEnergy, leftEnergy, rightEnergy));
+		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy, rightEnergy);
+		System.out.println("Processing "+conformation+", adding new template conf "+assignment);
+		templateHeap.add(assignment);
 		
 	}
 	
@@ -80,19 +78,23 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	public RCTuple nextBestConformation(RCTuple queryAssignment)
 	{
 		PriorityQueue<ScoredAssignment> lambdaHeap = getHeap(queryAssignment);
-		if(lambdaHeap.size() == 1 && !sourceProblem.isInternalNode())
+		if(lambdaHeap.size() < 1)
 		{
-			System.out.println("Can't be one YET...");
+			System.out.println("Debug empty heap.");
 		}
 		ScoredAssignment previousHeapRoot = lambdaHeap.poll();
 		RCTuple curBestAssignment = previousHeapRoot.assignment;
-		RCTuple outputAssignment = previousHeapRoot.assignment.copy();
-		outputAssignment.combineRC(queryAssignment);
-		queryAssignment.combineRC(curBestAssignment);
+		RCTuple outputAssignment = previousHeapRoot.assignment;
+		outputAssignment = outputAssignment.combineRC(queryAssignment);
+		queryAssignment = queryAssignment.combineRC(curBestAssignment);
+		if(lambdaHeap.size() < 1)
+		{
+			System.out.println("Debug empty heap.");
+		}
 		if(childConfs != null)
 		{
 			RCTuple nextBestChildConf = childConfs.getNextChildAssignment(queryAssignment);
-			outputAssignment.combineRC(nextBestChildConf);
+			outputAssignment = outputAssignment.combineRC(nextBestChildConf);
 			if(childConfs.hasMoreConformations(queryAssignment))
 			{
 				previousHeapRoot.updateLeftScore(childConfs.nextBestEnergy(queryAssignment));
@@ -152,6 +154,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		heapMap.put(RCTupleKey, newHeap);
 	}
 	
+	public double nextBestEnergy()
+	{
+		return nextBestEnergy(emptyConf);
+	}
+	
 	public double nextBestEnergy(RCTuple queryConf)
 	{
 		if(sourceProblem.printTreeDesign().equals("[2, ] - L Set:[2, ] - M Set:[1, 3, ]"))
@@ -168,10 +175,16 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		double bestScore = bestConf.score;
 		return bestScore;
 	}
-
-	public boolean hasMoreConformations(RCTuple MAssignment)
+	
+	public boolean hasMoreConformations()
 	{
-		return lambdaHeaps.get(sourceProblem.mapSubproblemConfToIndex(MAssignment)).size() > 0;
+		return hasMoreConformations(emptyConf);
+	}
+	
+
+	public boolean hasMoreConformations(RCTuple queryConf)
+	{
+		return getHeap(queryConf).size() > 0;
 	}
 	
 
@@ -240,7 +253,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 				RCTuple nextBestRightConf = rightConfs.getNextBestRightConf(nextBestChildConf);
 				updateChildAssignment(nextBestChildAssignment);
-				nextBestChildConf.combineRC(nextBestRightConf);
+				nextBestChildConf = nextBestChildConf.combineRC(nextBestRightConf);
 			}
 			else
 			{
