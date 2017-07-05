@@ -35,6 +35,7 @@ public class Subproblem {
 		TreeEdge curEdge = sparseTree;
 		lambdaSet = curEdge.getLambda();
 		MSet = curEdge.getM();
+		LSet = curEdge.getL();
 		MULambdaSet = new HashSet<Integer>();
 		MULambdaSet.addAll(lambdaSet);
 		MULambdaSet.addAll(MSet);
@@ -76,19 +77,30 @@ public class Subproblem {
 	
 	public int mapSubproblemConfToIndex(RCTuple conf)
 	{
-		int subproblemIndex = 0;
+		int subproblemIndex = -1;
 		int multiplier = 1;
 		for(int tupleIndex = 0; tupleIndex < conf.size(); tupleIndex++)
 		{
 			int pos = conf.pos.get(tupleIndex);
+			int PDBIndex = residueIndexMap.designIndexToPDBIndex(pos);
 			int RC = conf.RCs.get(tupleIndex);
-			if(MULambdaSet.contains(pos))
+			if(MSet.contains(PDBIndex))
 			{
-				int PDBIndex = residueIndexMap.designIndexToPDBIndex(pos);
+				if(subproblemIndex < 0)
+					subproblemIndex = 0;
+				
 				int subspaceRCIndex = getRCSpaceRCIndex(PDBIndex, RC);
 				subproblemIndex += subspaceRCIndex*multiplier;
 				multiplier *= localConfSpace.getNum(pos);
 			}
+		}
+		if(subproblemIndex < 0)
+		{
+			// edge case: root edge has an empty query.
+			if(conf.size() < 1 || MSet.size() < 1)
+				return 0;
+			else
+				System.out.println("No M set assignment, can't compute corresponding heap.");
 		}
 		return subproblemIndex;
 	}
@@ -158,6 +170,17 @@ public class Subproblem {
 		return numConformations;
 	}
 	
+	public BigInteger getTotalMConformations()
+	{
+		BigInteger numConformations = BigInteger.ONE;
+		for(int PDBIndex : MSet)
+		{
+			int designIndex = residueIndexMap.PDBIndexToDesignIndex(PDBIndex);
+			numConformations = numConformations.multiply(BigInteger.valueOf(localConfSpace.get(designIndex).length));
+		}
+		return numConformations;
+	}
+	
 	public BigInteger getSubtreeTESS()
 	{
 		BigInteger numConformations = getTotalLocalConformations();
@@ -183,8 +206,8 @@ public class Subproblem {
 	protected void recursivelyProcessTuples (int position, int[] currentConf) {
 		if(position >= localConfSpace.getNumPos())
 		{
-			System.out.println("Process conformation:"+printConf(currentConf));
 			RCTuple confTuple = new RCTuple(currentConf);
+			System.out.println("Processing "+confTuple+", sending to processor...");
 			for(ConformationProcessor proc : processors)
 			{
 				proc.processConformation(confTuple);
@@ -195,6 +218,7 @@ public class Subproblem {
 		int PDBIndex = residueIndexMap.designIndexToPDBIndex(position);
 		if(!MULambdaSet.contains(PDBIndex))
 		{
+			currentConf[position] = -1;
 			recursivelyProcessTuples(position+1, currentConf);
 			return;
 		}
@@ -229,6 +253,205 @@ public class Subproblem {
 			output += (finalPDBIndex)+":"+currentConf[currentConf.length-1];
 		output += ")";
 		return output;
+	}
+
+	public boolean isMULambdaAssignment (RCTuple queryAssignment) {
+		if(queryAssignment.size() != MULambdaSet.size())
+			return false;
+		for(int residueIndex : queryAssignment.pos)
+		{
+			if(!MULambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				return false;
+		}
+		return true;
+	}
+	
+	public boolean isMAssignment (RCTuple queryAssignment) {
+		if(queryAssignment.size() != MSet.size())
+			return false;
+		for(int residueIndex : queryAssignment.pos)
+		{
+			if(!MSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				return false;
+		}
+		return true;
+	}
+
+	public RCTuple extractSubproblemAssignment (RCTuple queryAssignment) {
+		RCTuple filteredTuple = new RCTuple();
+
+		for(int i = 0; i < queryAssignment.size(); i++)
+		{
+			int residueIndex = queryAssignment.pos.get(i);
+			if(MULambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+		}
+		return filteredTuple;
+	}
+	
+	public RCTuple extractSubproblemLambdaAssignment (RCTuple queryAssignment) {
+		RCTuple filteredTuple = new RCTuple();
+
+		for(int i = 0; i < queryAssignment.size(); i++)
+		{
+			int residueIndex = queryAssignment.pos.get(i);
+			if(lambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+		}		
+		if(lambdaSet.size() != filteredTuple.size())
+		{
+			System.err.println("Tuple filter failed. Size is wrong.");
+			System.out.println("lambdaSet: "+lambdaSet);
+			filteredTuple = new RCTuple();
+
+			for(int i = 0; i < queryAssignment.size(); i++)
+			{
+				int residueIndex = queryAssignment.pos.get(i);
+				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
+				if(lambdaSet.contains(PDBIndex))
+				{
+					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
+					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+				}
+			}	
+		}
+		assert(lambdaSet.size() == filteredTuple.size());
+
+		return filteredTuple;
+	}
+	
+	public RCTuple extractSubproblemMAssignment (RCTuple queryAssignment) {
+		RCTuple filteredTuple = new RCTuple();
+
+		for(int i = 0; i < queryAssignment.size(); i++)
+		{
+			int residueIndex = queryAssignment.pos.get(i);
+			if(MSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+		}		
+		if(MSet.size() != filteredTuple.size())
+		{
+			System.err.println("Tuple filter failed. Size is wrong.");
+			System.out.println("MSet: "+MSet);
+			filteredTuple = new RCTuple();
+
+			for(int i = 0; i < queryAssignment.size(); i++)
+			{
+				int residueIndex = queryAssignment.pos.get(i);
+				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
+				if(MSet.contains(PDBIndex))
+				{
+					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
+					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+				}
+			}	
+		}
+		assert(MSet.size() == filteredTuple.size());
+
+		return filteredTuple;
+	}
+	
+	public String printTreeMol()
+	{
+		return printTreeMol("");
+	}
+	
+	public String printTreeDesign()
+	{
+		return printTreeDesign("");
+	}
+	
+    public String printTreeDesign(String prefix)
+    {
+        String out = prefix + "[";
+        for(int i : lambdaSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]";
+
+        out += " - L Set:[";
+
+        for(int i : LSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]";
+
+        out += " - M Set:[";
+
+        for(int i : MSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]\n";
+//        boolean showHeaps = false;
+//        if(showHeaps)
+//        {
+//            out+="heaps: \n";
+//            for(PriorityQueue<Conf> heap : A2)
+//            {
+//                if(heap.size() > 0)
+//                    out+=""+heap+"\n";
+//            }
+//        }
+        if(leftSubproblem != null)
+            out += leftSubproblem.printTreeDesign(prefix+"+L--");
+        if(rightSubproblem != null)
+            out += rightSubproblem.printTreeDesign(prefix+"+R--");
+        return out;
+    }
+	
+    public String printTreeMol(String prefix)
+    {
+        String out = prefix + "[";
+        for(int i : lambdaSet)
+            out+=i+", ";
+        out+="]";
+
+        out += " - L Set:[";
+
+        for(int i : LSet)
+            out+=i+", ";
+        out+="]";
+
+        out += " - M Set:[";
+
+        for(int i : MSet)
+            out+=i+", ";
+        out+="]";
+//        boolean showHeaps = false;
+//        if(showHeaps)
+//        {
+//            out+="heaps: \n";
+//            for(PriorityQueue<Conf> heap : A2)
+//            {
+//                if(heap.size() > 0)
+//                    out+=""+heap+"\n";
+//            }
+//        }
+        if(leftSubproblem != null)
+            out += leftSubproblem.printTreeMol(prefix+"\n+L--");
+        if(rightSubproblem != null)
+            out += rightSubproblem.printTreeMol(prefix+"\n+R--");
+        return out;
+    }
+    
+    public String toString()
+    {
+    	return printTreeDesign("");
+    }
+
+	public BigInteger getLambdaConformations () {
+		BigInteger numConformations = BigInteger.ONE;
+		for(int PDBIndex : lambdaSet)
+		{
+			int designIndex = residueIndexMap.PDBIndexToDesignIndex(PDBIndex);
+			numConformations = numConformations.multiply(BigInteger.valueOf(localConfSpace.get(designIndex).length));
+		}
+		return numConformations;
+	}
+
+	public boolean isRoot () {
+		return MSet.size() < 1;
+	}
+
+	public boolean isInternalNode () {
+		return lambdaSet.size() < 1;
 	}
 
 }

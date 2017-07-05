@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +21,9 @@ public class RCTuple implements Serializable {
 	//a tuple of RCs
     public ArrayList<Integer> pos;//which flexible positions
     public ArrayList<Integer> RCs;//the RCs themselves (residue-specific numbering, as in the TupleMatrices)
+    
+    // A non-painfully annoying parallel array implemtation of an ordered set of ordered pairs.
+    private ArrayList<RCPair> RCPairs = new ArrayList<>();;
 
     
     public RCTuple(){
@@ -73,7 +77,7 @@ public class RCTuple implements Serializable {
     	for(int RCIndex = 0; RCIndex < source.size(); RCIndex++)
     	{
     		int sourcePos = source.pos.get(RCIndex);
-    		int sourceRC = source.pos.get(RCIndex);
+    		int sourceRC = source.RCs.get(RCIndex);
     		assert(sourceRC != -1); 
     		
     		int correspondingRC = lookupRC(sourcePos);
@@ -83,7 +87,11 @@ public class RCTuple implements Serializable {
     					+this+" with "+source+", which differs at position "+sourcePos);
     		}
     		assert(correspondingRC == -1 || correspondingRC == sourceRC);
-    		pos.set(sourcePos, sourceRC);
+    		if(correspondingRC == -1)
+    		{
+    			pos.add(sourcePos);
+    			RCs.add(sourceRC);
+    		}
     	}
     }
     
@@ -178,8 +186,28 @@ public class RCTuple implements Serializable {
         return ans;
     }
     
+    public String stringListingShort(){
+    	if(RCPairs.size() < 1)
+    	{
+    		for(int RCIndex = 0; RCIndex < size(); RCIndex++)
+    		{
+    			RCPairs.add(new RCPair(pos.get(RCIndex),RCs.get(RCIndex)));
+    		}
+    	}
+    	Collections.sort(RCPairs);
+        //Listing the RCs in a string
+        String ans = "(";
+        
+        for(int RCIndex=0; RCIndex<RCPairs.size(); RCIndex++){
+        	RCPair pair = RCPairs.get(RCIndex);
+            ans = ans + pair.pos + ":" + pair.RC + ", ";
+        }
+        
+        return ans+")";
+    }
+    
     public String toString(){
-    	return stringListing();
+    	return stringListingShort();
     }
     
     
@@ -209,5 +237,21 @@ public class RCTuple implements Serializable {
         newRCs.add(addedRC);
         
         return new RCTuple(newPos,newRCs);
+    }
+    
+    private class RCPair implements Comparable<RCPair>{
+
+    	int pos;
+    	int RC;
+    	public RCPair(int position, int RCAssignment) {
+    		pos = position;
+    		RC = RCAssignment;
+    	}
+    	
+
+		@Override
+		public int compareTo (RCPair arg0) {
+			return pos - arg0.pos;
+		}
     }
 }

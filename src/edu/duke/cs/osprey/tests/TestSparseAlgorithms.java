@@ -95,37 +95,38 @@ public class TestSparseAlgorithms  extends TestCase {
         fullRCSpace.breakDownRCSpace();
 		
 		
-//		if(!bdGenerated)
-//		{
-//			String runName = cfp.getParams().getValue("runName");
-//			String graphFileName = "test/1CC8Sparse/"+runName;
-//			String bdFileName = "test/1CC8Sparse/"+runName+"_bd";
-//			
-//			EnergyFunction efunction = searchSpace.fullConfE;
-//			ConfSpace conformationSpace = searchSpace.confSpace;
-//			ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
-//			graph.computeEdgeBounds(searchSpace, efunction);
-//			graph.printStatistics();
-//			graph.applyEnergyCutoff(0.2, searchSpace, efunction);
-//			graph.writeGraph(graphFileName);
-//
-//			String[] args = new String[]{graphFileName, bdFileName};
-//			long startBD = System.currentTimeMillis();
-//			BranchDecomposition.main(args);
-//			long endBD = System.currentTimeMillis();
-//			long BDTime = endBD - startBD;
-//
-//			System.out.println("Branch Decomposition generation time: "+BDTime);
-//			long start = System.currentTimeMillis();
-//			System.out.println("Branch Decomposition generated. Calculating GMEC...");
-//
-//
-//
-//			long end = System.currentTimeMillis();
-//			long time = end - start;
-//			System.out.println("Total time BD generation time taken in ms: "+time);
-//			bdGenerated = true;
-//		}
+		if(!bdGenerated)
+		{
+			String runName = cfp.getParams().getValue("runName");
+			String graphFileName = "test/1CC8Sparse/"+runName;
+			String bdFileName = "test/1CC8Sparse/"+runName+"_bd";
+			
+			EnergyFunction efunction = searchSpace.fullConfE;
+			ConfSpace conformationSpace = searchSpace.confSpace;
+			ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
+			graph.computeEdgeBounds(searchSpace, efunction);
+			graph.printStatistics();
+			//graph.applyEnergyCutoff(0.2, searchSpace, efunction);
+			graph.applyDistanceCutoff(3, searchSpace, efunction);
+			graph.writeGraph(graphFileName);
+
+			String[] args = new String[]{graphFileName, bdFileName};
+			long startBD = System.currentTimeMillis();
+			BranchDecomposition.main(args);
+			long endBD = System.currentTimeMillis();
+			long BDTime = endBD - startBD;
+
+			System.out.println("Branch Decomposition generation time: "+BDTime);
+			long start = System.currentTimeMillis();
+			System.out.println("Branch Decomposition generated. Calculating GMEC...");
+
+
+
+			long end = System.currentTimeMillis();
+			long time = end - start;
+			System.out.println("Total time BD generation time taken in ms: "+time);
+			bdGenerated = true;
+		}
 
 	}
 
@@ -280,10 +281,10 @@ public class TestSparseAlgorithms  extends TestCase {
 		BranchTree tree = new BranchTree(bdFile, problem);
 		TreeEdge rootEdge = tree.getRootEdge();
 		rootEdge.compactTree();
-		rootEdge.printTreeMol("");
 		
 
 		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
+		System.out.println(sparseProblem.printTreeDesign());
 		EnergyFunction efunction = searchSpace.fullConfE;
 		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(efunction, conformationSpace);
 		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);

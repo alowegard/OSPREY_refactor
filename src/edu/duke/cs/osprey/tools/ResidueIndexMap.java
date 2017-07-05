@@ -17,6 +17,10 @@ public class ResidueIndexMap {
 	
 	public int designIndexToPDBIndex(int designIndex)
 	{
+		if(!designIndexToPDBIndex.containsKey(designIndex))
+		{
+			return -1;
+		}
 		return designIndexToPDBIndex.get(designIndex);
 	}
 	
