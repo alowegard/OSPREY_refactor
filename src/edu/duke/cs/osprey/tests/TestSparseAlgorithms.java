@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -291,6 +292,11 @@ public class TestSparseAlgorithms  extends TestCase {
 		sparseProblem.preprocess();
 		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
+		
+		ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
+		graph.computeEdgeBounds(searchSpace, efunction);
+		graph.printStatistics();
+		graph.storeEFunction(searchSpace, efunction);
 		while(enumerator.hasMoreConformations())
 		{
 		double nextBestEnergy = enumerator.nextBestEnergy();
@@ -298,7 +304,12 @@ public class TestSparseAlgorithms  extends TestCase {
 		System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
 		double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
 		System.out.println("True energy: "+trueEnergy);
+		graph.analyzeConf(nextBestConf);
 		}
+		
+		GMECFinder sanityCheck = new GMECFinder();
+		sanityCheck.init(cfp);
+		sanityCheck.calcGMEC();
 	}
 
 	@Test

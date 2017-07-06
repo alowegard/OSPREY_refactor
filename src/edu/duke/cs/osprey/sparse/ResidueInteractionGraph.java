@@ -38,6 +38,7 @@ public class ResidueInteractionGraph {
 	double energyCutoff = 0; // energy cutoff, in kcal/mol
 	double[][] distanceBounds;
 	double[][] energyBounds;
+	Map<String, Double> energyMap = new HashMap<String, Double>();
 	
 	public ResidueInteractionGraph()
 	{
@@ -450,6 +451,104 @@ public class ResidueInteractionGraph {
 							+energyBounds[i][j]+", distance "+distanceBounds[i][j]);
 				
 			}
+	}
+	
+	public void analyzeConf(RCTuple conf)
+	{
+		for(int RCIndex = 0; RCIndex < conf.size(); RCIndex++)
+		{
+			int position = conf.pos.get(RCIndex);
+			int RC = conf.RCs.get(RCIndex);
+			RCTuple oneBodyTuple = new RCTuple(position, RC);
+			double oneBodyEnergy = energyMap.get(oneBodyTuple.toString());
+			System.out.println("One-body energy for "+oneBodyTuple+": "+oneBodyEnergy);
+			for(int RCIndexj = RCIndex + 1; RCIndexj < conf.size(); RCIndexj++)
+			{
+				int positionj = conf.pos.get(RCIndexj);
+				int RCj = conf.RCs.get(RCIndexj);
+				RCTuple pairTuple = new RCTuple(position, RC, positionj, RCj);
+				double pairwiseEnergy = energyMap.get(pairTuple.toString());
+
+				System.out.println("Pair energy for "+pairTuple+":"+pairwiseEnergy);
+			}
+		}
+	}
+
+	public void storeEFunction (SearchProblem problem, EnergyFunction termE) {		
+		ConfSpace conformations = problem.confSpace;
+		int numResidues = vertices.size();
+		double[][] pairwiseEnergyMaxBounds = new double[numResidues][numResidues];
+		double[][] pairwiseEnergyMinBounds = new double[numResidues][numResidues];
+		distanceBounds = new double[numResidues][numResidues];
+		energyBounds = new double[numResidues][numResidues];
+
+		for(int i = 0; i < pairwiseEnergyMaxBounds.length; i++)
+			for(int j = 0; j < pairwiseEnergyMaxBounds[i].length; j++)
+			{
+				pairwiseEnergyMaxBounds[i][j] = Double.NEGATIVE_INFINITY;
+				pairwiseEnergyMinBounds[i][j] = Double.POSITIVE_INFINITY;
+				distanceBounds[i][j] = Double.POSITIVE_INFINITY;
+			}
+
+		for(int i =0; i < vertices.size(); i++)
+		{
+			Residue resi = conformations.posFlex.get(i).res;
+			for(int j = 0; j < conformations.posFlex.get(i).RCs.size(); j++)
+			{
+				RCTuple conformationTupleTest = new RCTuple(i,j);
+				MoleculeModifierAndScorer mofTest = new MoleculeModifierAndScorer(termE,conformations,conformationTupleTest);
+
+				DoubleMatrix1D bestDOFValsTest;
+
+				if(mofTest.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+					CCDMinimizer ccdMin = new CCDMinimizer(mofTest,true);
+					bestDOFValsTest = ccdMin.minimize().dofValues;
+				}
+				else//molecule is already in the right, rigid conformation
+					bestDOFValsTest = DoubleFactory1D.dense.make(0);
+
+
+				double oneBodyEnergy = mofTest.getEnergyAndReset(bestDOFValsTest);
+				energyMap.put(conformationTupleTest.toString(), oneBodyEnergy);
+
+				for(int k = i+1; k < vertices.size(); k++)
+				{
+					Residue resj = conformations.posFlex.get(k).res;
+					for(int l = 0; l < conformations.posFlex.get(k).RCs.size(); l++)
+					{
+						RCTuple conformationTuple = new RCTuple(i,j,k,l);
+						MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(termE,conformations,conformationTuple);
+
+						DoubleMatrix1D bestDOFVals;
+
+						if(mof.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+							CCDMinimizer ccdMin = new CCDMinimizer(mof,true);
+							bestDOFVals = ccdMin.minimize().dofValues;
+						}
+						else//molecule is already in the right, rigid conformation
+							bestDOFVals = DoubleFactory1D.dense.make(0);
+
+
+						double pairwiseEnergy = mof.getEnergyAndReset(bestDOFVals);
+						energyMap.put(conformationTuple.toString(), pairwiseEnergy);
+						if(pairwiseEnergy > 100)
+						{
+							//System.out.println("Clash?");
+						}
+						double distance = resi.distanceTo(resj);
+						distanceBounds[i][k] = Math.min(distance, distanceBounds[i][k]);
+						updateDistanceBound(vertices.get(i),vertices.get(k),distance);
+						pairwiseEnergyMaxBounds[i][k] = Math.max(pairwiseEnergy, pairwiseEnergyMaxBounds[i][k]);
+						pairwiseEnergyMinBounds[i][k] = Math.min(pairwiseEnergy, pairwiseEnergyMaxBounds[i][k]);
+						//		            System.out.println("Energy of ("+i+"-"+j+","+k+"-"+l+"):"+pairwiseEnergy);
+						//		            System.out.println("Distance between ("+i+"-"+j+","+k+"-"+l+"):"+distance);
+
+					}
+
+				}
+			}
+
+		}
 	}
 
 }
