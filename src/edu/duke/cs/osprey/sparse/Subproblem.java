@@ -207,7 +207,6 @@ public class Subproblem {
 		if(position >= localConfSpace.getNumPos())
 		{
 			RCTuple confTuple = new RCTuple(currentConf);
-			System.out.println("Processing "+confTuple+", sending to processor...");
 			for(ConformationProcessor proc : processors)
 			{
 				proc.processConformation(confTuple);

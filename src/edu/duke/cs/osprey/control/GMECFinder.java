@@ -81,13 +81,10 @@ public class GMECFinder {
     private double lowestBound;
     
     public GMECFinder() {
-        
-        // Arguably, the stuff below is the initialization, which should be its own function. The constructor may eventually
-        // do other more interesting things and reading in member variables isn't that interesting. -JJ
-        // Ew = cfp.prams.getDouble("Ew");
-        // etc...
     
         // Jeff: I think is a good place to set default values
+    	// JJ: I agree that initializing 3 default values is useful, particularly logConfsToConsole. Defaulting to null might be
+    	// mundane enough to put in the declaration.
         logConfsToConsole = true;
         confPruner = null;
         ecalc = null;

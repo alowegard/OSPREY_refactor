@@ -287,24 +287,27 @@ public class TestSparseAlgorithms  extends TestCase {
 		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
 		System.out.println(sparseProblem.printTreeDesign());
 		EnergyFunction efunction = searchSpace.fullConfE;
-		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(efunction, conformationSpace);
+		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(searchSpace, efunction, conformationSpace);
 		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);
 		sparseProblem.preprocess();
 		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
 		
-		ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
-		graph.computeEdgeBounds(searchSpace, efunction);
-		graph.printStatistics();
-		graph.storeEFunction(searchSpace, efunction);
-		while(enumerator.hasMoreConformations())
+		int maxConfNum = 20;
+		int numConfs = 0;
+		while(enumerator.hasMoreConformations()&& numConfs <1000)
 		{
-		double nextBestEnergy = enumerator.nextBestEnergy();
-		RCTuple nextBestConf = enumerator.nextBestConformation();
-		System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
-		double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
-		System.out.println("True energy: "+trueEnergy);
-		graph.analyzeConf(nextBestConf);
+			System.out.println("Conf number: "+ numConfs);
+			double nextBestEnergy = enumerator.nextBestEnergy();
+			RCTuple nextBestConf = enumerator.nextBestConformation();
+			System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
+			double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
+			System.out.println("True energy: "+trueEnergy);
+			numConfs++;
+			if(numConfs > 10)
+			{
+				System.out.println("Debug.");
+			}
 		}
 		
 		GMECFinder sanityCheck = new GMECFinder();

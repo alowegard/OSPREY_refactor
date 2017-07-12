@@ -239,28 +239,14 @@ public class ResidueInteractionGraph {
 					{
 						int unprunedRCk = RCSpace.get(k, l);
 						RCTuple conformationTuple = new RCTuple(i,unprunedRCi,k,unprunedRCk);
-						MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(termE,conformations,conformationTuple);
-
-			            DoubleMatrix1D bestDOFVals;
-
-			            if(mof.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
-			                CCDMinimizer ccdMin = new CCDMinimizer(mof,true);
-			                bestDOFVals = ccdMin.minimize().dofValues;
-			            }
-			            else//molecule is already in the right, rigid conformation
-			                bestDOFVals = DoubleFactory1D.dense.make(0);
-
-
-			            double pairwiseEnergy = mof.getEnergyAndReset(bestDOFVals);
-						if(pairwiseEnergy > 100)
-						{
-							//System.out.println("Clash?");
-						}
+			            
+			            double pairwiseEnergy = problem.emat.getInternalEnergy(conformationTuple);
+			            
 			            double distance = resi.distanceTo(resj);
 			            distanceBounds[i][k] = Math.min(distance, distanceBounds[i][k]);
 			            updateDistanceBound(vertices.get(i),vertices.get(k),distance);
 			            pairwiseEnergyMaxBounds[i][k] = Math.max(pairwiseEnergy, pairwiseEnergyMaxBounds[i][k]);
-			            pairwiseEnergyMinBounds[i][k] = Math.min(pairwiseEnergy, pairwiseEnergyMaxBounds[i][k]);
+			            pairwiseEnergyMinBounds[i][k] = Math.min(pairwiseEnergy, pairwiseEnergyMinBounds[i][k]);
 //			            System.out.println("Energy of ("+i+"-"+j+","+k+"-"+l+"):"+pairwiseEnergy);
 //			            System.out.println("Distance between ("+i+"-"+j+","+k+"-"+l+"):"+distance);
 			            	

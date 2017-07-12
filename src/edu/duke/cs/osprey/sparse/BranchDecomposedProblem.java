@@ -31,7 +31,7 @@ public class BranchDecomposedProblem {
 	public BranchDecomposedProblem(SearchProblem problem, TreeEdge rootEdge, RCs fullSpace, EnergyFunction eFunc)
 	{
 		sparseTree = rootEdge;
-		sparseEnergyFunction = new PartialConformationEnergyFunction(eFunc, problem.confSpace);
+		sparseEnergyFunction = new PartialConformationEnergyFunction(problem, eFunc, problem.confSpace);
 		buildDecomposedProblem(sparseTree, fullSpace);
 		resMap = ResidueIndexMap.createResidueIndexMap(problem.confSpace);
 	}

@@ -1,38 +1,26 @@
-NODES: 10
+NODES: 6
 # NODE LINE FORMAT:
 # node_index num_edges is_leaf graph_v1 graph_v2
-0 1 true 51 52
-1 1 true 51 55
-2 1 true 52 53
-3 1 true 52 55
-4 1 true 53 54
-5 1 true 54 55
-6 3 false
-7 3 false
-8 3 false
-9 3 false
+0 1 true 51 55
+1 1 true 53 57
+2 1 true 55 59
+3 1 true 57 61
+4 3 false
+5 3 false
 
-EDGES: 9
+EDGES: 5
 # EDGE LINES FORMAT:
 # edge_index node1_index node2_index width
 # list_graph_vertices_in_M
-0 6 0 2
-51 52 
-1 6 1 2
-51 55 
-2 7 2 2
-52 53 
-3 7 4 2
-53 54 
-4 8 3 2
-52 55 
-5 9 5 2
-54 55 
-6 8 6 2
-52 55 
-7 9 7 2
-52 54 
-8 8 9 2
-52 55 
+0 4 0 1
+55 
+1 5 1 1
+57 
+2 4 2 1
+55 
+3 5 3 1
+57 
+4 4 5 0
+-1
 
-# Branchwidth: 2
+# Branchwidth: 1

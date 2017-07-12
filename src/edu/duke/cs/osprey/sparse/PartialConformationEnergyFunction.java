@@ -4,6 +4,8 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer.Result;
@@ -13,9 +15,11 @@ public class PartialConformationEnergyFunction {
 	
 	private EnergyFunction fullEnergyFunction;
 	private ConfSpace conformations;
+	private EnergyMatrix eMat;
 	
-	public PartialConformationEnergyFunction(EnergyFunction termE, ConfSpace conformationSpace)
+	public PartialConformationEnergyFunction(SearchProblem problem, EnergyFunction termE, ConfSpace conformationSpace)
 	{
+		eMat = problem.emat;
 		fullEnergyFunction = termE;
 		conformations = conformationSpace;
 	}
@@ -31,6 +35,20 @@ public class PartialConformationEnergyFunction {
 	}
 	
 	public double computePartialEnergy(RCTuple priorConformation, RCTuple partialAssignment)
+	{
+		RCTuple combinedAssignment = new RCTuple();
+		double MEnergy = 0;
+		if(priorConformation!=null)
+		{
+			MEnergy = eMat.getInternalEnergy(priorConformation);
+			combinedAssignment = combinedAssignment.combineRC(priorConformation);
+		}
+		combinedAssignment = combinedAssignment.combineRC(partialAssignment);
+		
+		return eMat.getInternalEnergy(combinedAssignment) - MEnergy;
+	}
+	
+	public double computePartialEnergyOld(RCTuple priorConformation, RCTuple partialAssignment)
 	{
 		RCTuple combinedAssignment = new RCTuple();
 		if(priorConformation!=null)
