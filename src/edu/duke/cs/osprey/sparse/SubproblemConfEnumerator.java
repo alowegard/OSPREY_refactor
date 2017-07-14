@@ -78,12 +78,16 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	public RCTuple nextBestConformation(RCTuple queryAssignment)
 	{
 		PriorityQueue<ScoredAssignment> lambdaHeap = getHeap(queryAssignment);
-		System.out.println("Beginning recursion at "+sourceProblem);
+		System.out.println("Beginning recursion at \n"+sourceProblem);
 		System.out.println("Heap:");
 
 		for(ScoredAssignment conf : lambdaHeap)
 		{
 			System.out.println(conf);
+		}
+		if(lambdaHeap.size() < 1)
+		{
+			System.err.println("Should not have polled, empty heap...");
 		}
 		ScoredAssignment previousHeapRoot = lambdaHeap.poll();
 		RCTuple curBestAssignment = previousHeapRoot.assignment;
@@ -104,13 +108,31 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				lambdaHeap.add(previousHeapRoot);
 			}
 		}
-			
+			if(lambdaHeap.size() < 1)
+			{
+				System.out.println("Empty heap at \n"+sourceProblem);
+			}
 		
 		return outputAssignment;
 	}
 	
 	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
 		return getHeap(queryAssignment, false);
+	}
+	
+	private void checkHeap(PriorityQueue<ScoredAssignment> templateHeap)
+	{
+		for(ScoredAssignment conf : templateHeap)
+		{
+			if(conf.assignment == null)
+			{
+				System.out.println("Null assignment. Weird...");
+			}
+			if(!sourceProblem.isValidConf(conf.assignment))
+			{
+				System.out.println("Invalid conf in heap.");
+			}
+		}
 	}
 
 	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment, boolean isTemplateHeap) {
@@ -132,6 +154,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		{
 			System.err.println("Heap not found.");
 		}
+		checkHeap(output);
 		return output;
 	}
 	
@@ -493,6 +516,10 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		public ScoredAssignment (RCTuple conformation, double selfEnergy,
 				double leftBestEnergy, double rightBestEnergy) {
 			assignment = conformation;
+			if(assignment == null)
+			{
+				System.err.println("Created a conformation with no actual conformation.");
+			}
 			selfScore = selfEnergy;
 			leftScore = leftBestEnergy;
 			rightScore = rightBestEnergy;

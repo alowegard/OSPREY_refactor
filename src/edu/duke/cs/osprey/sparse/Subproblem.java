@@ -377,7 +377,8 @@ public class Subproblem {
 
         for(int i : MSet)
             out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
-        out+="]\n";
+        out+="]";
+
 //        boolean showHeaps = false;
 //        if(showHeaps)
 //        {
@@ -389,9 +390,9 @@ public class Subproblem {
 //            }
 //        }
         if(leftSubproblem != null)
-            out += leftSubproblem.printTreeDesign(prefix+"+L--");
+            out += "\n"+leftSubproblem.printTreeDesign(prefix+"+L--");
         if(rightSubproblem != null)
-            out += rightSubproblem.printTreeDesign(prefix+"+R--");
+            out += "\n"+rightSubproblem.printTreeDesign(prefix+"+R--");
         return out;
     }
 	
@@ -451,6 +452,12 @@ public class Subproblem {
 
 	public boolean isInternalNode () {
 		return lambdaSet.size() < 1;
+	}
+
+	public boolean isValidConf (RCTuple assignment) {
+		RCTuple lambdaAssignment =  extractSubproblemLambdaAssignment(assignment);
+		return lambdaAssignment.size() == lambdaSet.size()
+				|| (isInternalNode() && leftSubproblem.isValidConf(assignment));
 	}
 
 }
