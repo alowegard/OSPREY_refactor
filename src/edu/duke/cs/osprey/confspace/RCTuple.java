@@ -102,6 +102,7 @@ public class RCTuple implements Serializable {
     			output.RCs.add(sourceRC);
     		}
     	}
+
     	return output;
     }
     

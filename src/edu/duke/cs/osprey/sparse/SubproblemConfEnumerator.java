@@ -68,7 +68,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
 		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy, rightEnergy);
-		//System.out.println("Processing "+conformation+", adding new template conf "+assignment);
+		//debugPrint("Processing "+conformation+", adding new template conf "+assignment);
 		templateHeap.add(assignment);
 		
 	}
@@ -78,12 +78,12 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	public RCTuple nextBestConformation(RCTuple queryAssignment)
 	{
 		PriorityQueue<ScoredAssignment> lambdaHeap = getHeap(queryAssignment);
-		System.out.println("Beginning recursion at \n"+sourceProblem);
-		System.out.println("Heap:");
+		debugPrint("Beginning recursion with "+queryAssignment+" at \n"+sourceProblem);
+		debugPrint("Heap:");
 
 		for(ScoredAssignment conf : lambdaHeap)
 		{
-			System.out.println(conf);
+			debugPrint(conf);
 		}
 		if(lambdaHeap.size() < 1)
 		{
@@ -91,13 +91,10 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 		ScoredAssignment previousHeapRoot = lambdaHeap.poll();
 		RCTuple curBestAssignment = previousHeapRoot.assignment;
-		RCTuple outputAssignment = previousHeapRoot.assignment;
+		RCTuple outputAssignment = previousHeapRoot.assignment.copy();
 		outputAssignment = outputAssignment.combineRC(queryAssignment);
 		queryAssignment = queryAssignment.combineRC(curBestAssignment);
-		if(lambdaHeap.size() < 1)
-		{
-			System.out.println("Debug empty heap.");
-		}
+
 		if(childConfs != null)
 		{
 			RCTuple nextBestChildConf = childConfs.getNextChildAssignment(queryAssignment);
@@ -110,9 +107,9 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 			if(lambdaHeap.size() < 1)
 			{
-				System.out.println("Empty heap at \n"+sourceProblem);
+				debugPrint("Empty heap at \n"+sourceProblem);
 			}
-		
+		debugPrint("Returning "+outputAssignment+" from \n"+sourceProblem);
 		return outputAssignment;
 	}
 	
@@ -126,11 +123,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		{
 			if(conf.assignment == null)
 			{
-				System.out.println("Null assignment. Weird...");
+				debugPrint("Null assignment. Weird...");
 			}
 			if(!sourceProblem.isValidConf(conf.assignment))
 			{
-				System.out.println("Invalid conf in heap.");
+				debugPrint("Invalid conf in heap.");
 			}
 		}
 	}
@@ -189,12 +186,12 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	{
 		if(sourceProblem.printTreeDesign().equals("[2, ] - L Set:[2, ] - M Set:[1, 3, ]"))
 		{
-			System.out.println("Debug this node.");
+			debugPrint("Debug this node.");
 		}
 		PriorityQueue<ScoredAssignment> heap = getHeap(queryConf);
 		if(heap.size() < 1)
 		{
-			System.out.println("No confs at "+sourceProblem);
+			debugPrint("No confs at "+sourceProblem);
 			getHeap(queryConf);
 		}
 		ScoredAssignment bestConf = heap.peek();
@@ -218,7 +215,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		PriorityQueue<ScoredAssignment> heap = getHeap(queryConf);
 		if(heap.size() < 1)
 		{
-			System.out.println("No confs...");
+			debugPrint("No confs...");
 			getHeap(queryConf);
 		}
 		ScoredAssignment bestConf = heap.peek();
@@ -230,6 +227,12 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		return false;
 	}
 	
+	private void debugPrint(Object print)
+	{
+		boolean debug = false;
+		if(debug)
+			System.out.println(print);
+	}
 	
 	/*** This class will encapsulate ALL of the crazy logic that 
 	 * goes into maintaining the heaps required for sparse enumeration.
@@ -356,7 +359,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				{
 					List<ScoredAssignment> newConfList = new LinkedList<>();
 					double firstScore = rightSubproblemEnum.nextBestEnergy(queryConf);
-					RCTuple firstAssignment = rightSubproblemEnum.peekNextBestConformation(queryConf);
+					RCTuple firstAssignment = rightSubproblemEnum.nextBestConformation(queryConf);
 					newConfList.add(new ScoredAssignment(firstAssignment, firstScore, 0, 0));
 
 					rightConfLists.put(templateConf.toString(), newConfList);
@@ -475,10 +478,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		{
 			cleanHeap();
 			ScoredAssignment nextBestAssignment = super.poll();
-			if(size() < 1)
-			{
-				System.out.println("We've emptied this heap. So soon?");
-			}
 			if(nextBestAssignment == cleanAssignment)
 				dirty = true;
 			return nextBestAssignment;
@@ -579,7 +578,7 @@ public void bTrackBestConfRemoveEarlyNew(RotTypeMap bestPosAARot[], int[] bestSt
         outputInitialDebugData(bestPosAARot, outHeap);
     
     if(outHeap.size() > 1 && lambda.size() < 1)
-        System.out.println("Impossibiruuuu");
+        debugPrint("Impossibiruuuu");
     debugPrint("Begin. Polling heap...");
     Conf nextState = outHeap.poll();
     // Add lambda to the solution 
@@ -609,7 +608,7 @@ public void bTrackBestConfRemoveEarlyNew(RotTypeMap bestPosAARot[], int[] bestSt
         debugPrint("Getting secondary heap from "+leftEdge.L+leftEdge.lambda+"...");
         LazyHeap<Conf> secondaryHeap = getSecondaryHeap(bestPosAARotOld, leftM);
         if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-            System.out.println("IMPOSSIBIRU!?!?!!");
+            debugPrint("IMPOSSIBIRU!?!?!!");
         if((secondaryHeap.dirty || secondaryHeap.size() < 1) && leftEdge.moreConformations(bestPosAARotOld, leftM)) 
         {
         	debugPrint("Populating heap with new conformation...");
@@ -624,7 +623,7 @@ public void bTrackBestConfRemoveEarlyNew(RotTypeMap bestPosAARot[], int[] bestSt
             secondaryHeap.add(newLeftConf);
             secondaryHeap.dirty = false;
             if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-                System.out.println("IMPOSSIBIRU!?!?!!");
+                debugPrint("IMPOSSIBIRU!?!?!!");
         }
         
         // Maintain cleanliness 
@@ -698,7 +697,7 @@ public void bTrackBestConfRemoveEarlyNew(RotTypeMap bestPosAARot[], int[] bestSt
             secondaryHeap.add(newLeftConf);
             secondaryHeap.dirty = false;
             if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-                System.out.println("IMPOSSIBIRU!?!?!!");
+                debugPrint("IMPOSSIBIRU!?!?!!");
         }
 
         if(secondaryHeap.size() > 0)

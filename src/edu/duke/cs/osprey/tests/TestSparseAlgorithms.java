@@ -295,7 +295,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		
 		int maxConfNum = 20;
 		int numConfs = 0;
-		while(enumerator.hasMoreConformations()&& numConfs <1000)
+		while(enumerator.hasMoreConformations()&& numConfs <maxConfNum)
 		{
 			System.out.println("Conf number: "+ numConfs);
 			double nextBestEnergy = enumerator.nextBestEnergy();
