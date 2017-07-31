@@ -470,10 +470,17 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 
 		public void updateConf (SubproblemConfEnumerator rightSubproblem) {
-			if(!hasMoreConformations() && rightSubproblem.hasMoreConformations(queryAssignment))
+			RCTuple rightMAssignment = rightSubproblem.sourceProblem.extractSubproblemMAssignment(queryAssignment);
+			if(!hasMoreConformations())
 			{
-				double nextRightConfE = rightSubproblem.nextBestEnergy(queryAssignment);
-				RCTuple nextRightConf = rightSubproblem.nextBestConformation(queryAssignment);
+				debugPrint("Used up existing "+queryAssignment+", checking to see if there are more...");
+				debugPrint("Querying for more right conformations with "+rightMAssignment);
+			}
+			if(!hasMoreConformations() && rightSubproblem.hasMoreConformations(rightMAssignment))
+			{
+				debugPrint("Appending new right Conformation for "+queryAssignment);
+				double nextRightConfE = rightSubproblem.nextBestEnergy(rightMAssignment);
+				RCTuple nextRightConf = rightSubproblem.nextBestConformation(rightMAssignment);
 				RCTuple rightPart = rightSubproblem.sourceProblem.extractSubproblemLAssignment(nextRightConf);
 				confList.add(new ScoredAssignment(rightPart, nextRightConfE, 0, 0));
 			}
@@ -501,9 +508,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			{
 				System.err.println("No confs...");
 			}
+			assert(confListIndex < confList.size());
+			debugPrint("Using conf "+confListIndex+" from list "+confList);
 			RCTuple output = confList.get(confListIndex).assignment;
-			debugPrint("Polling conf "+confListIndex+" from "+confList+":"+output);
 			confListIndex++;
+			debugPrint("Polled conf "+output+", index advanced to "+confListIndex);
 			return output;
 		}
 		
