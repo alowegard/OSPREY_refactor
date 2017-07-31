@@ -73,7 +73,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			rightEnergy = rightSubproblem.nextBestEnergy(conformation);
 
 		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
-		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy, rightEnergy);
+		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy + rightEnergy, 0);
 		debugPrint("Processing "+conformation+", adding new template conf "+assignment);
 		templateHeap.add(assignment);
 		
@@ -129,9 +129,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		return outputAssignment;
 	}
 	
-	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
-		return getHeap(queryAssignment, false);
-	}
+
 	
 	private void checkHeap(PriorityQueue<ScoredAssignment> templateHeap)
 	{
@@ -148,7 +146,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 	}
 
-	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment, boolean isTemplateHeap) {
+	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
 		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
 
 		String RCTupleKey = queryAssignment.toString();
@@ -160,8 +158,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 		if(!lambdaHeaps.get(lambdaHeapIndex).containsKey(RCTupleKey))
 			initializeHeap(queryAssignment, RCTupleKey);
-		if(isTemplateHeap)
-			RCTupleKey = sourceProblem.extractSubproblemMAssignment(queryAssignment).toString();
 		PriorityQueue<ScoredAssignment> output = lambdaHeaps.get(lambdaHeapIndex).get(RCTupleKey);
 		if(output == null)
 		{
@@ -374,7 +370,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			if(rightConfs.hasMoreConformations(nextBestChildQueryConf))
 			{
 				debugPrint("More right confs for left assignment "+nextBestChildQueryConf+" at:\n"+sourceProblem);
-				nextBestChildAssignment.updateRightScore(rightConfs.peekNextBestEnergy(nextBestChildQueryConf));
+				nextBestChildAssignment.updateLeftScore(rightConfs.peekNextBestEnergy(nextBestChildQueryConf));
 				leftHeapMap.get(queryAssignment.toString()).add(nextBestChildAssignment);
 			}
 			else 
