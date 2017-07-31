@@ -62,7 +62,9 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 	@Override
 	public void processConformation (RCTuple conformation) {
-		double selfEnergy = energyFunction.computePartialEnergy(conformation);
+		RCTuple MAssignment = sourceProblem.extractSubproblemMAssignment(conformation);
+		RCTuple lambdaAssingment = sourceProblem.extractSubproblemLambdaAssignment(conformation);
+		double selfEnergy = energyFunction.computePartialEnergyGivenPriorConformation(MAssignment, lambdaAssingment);
 		double leftEnergy = 0;
 		if(leftSubproblem != null)
 			leftEnergy = leftSubproblem.nextBestEnergy(conformation);
@@ -416,7 +418,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				if(!rightConfLists.containsKey(templateConf.toString()))
 				{
 					debugPrint("Creating new conf list for "+queryConf);
-					List<ScoredAssignment> newConfList = new LinkedList<>();
+					List<ScoredAssignment> newConfList = new UniqueConfList();
 					double nextRightConfE = rightSubproblemEnum.nextBestEnergy(templateConf);
 					debugPrint("Polling new conformation from right side with "+templateConf+"...");
 					RCTuple nextRightConf = rightSubproblemEnum.nextBestConformation(templateConf);
@@ -583,7 +585,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			double nextBestEnergy = leftSubproblem.nextBestEnergy(queryAssignment);
 			leftSubproblem.hasMoreConformations(queryAssignment);
 			RCTuple nextBestLeftConf = leftSubproblem.nextBestConformation(queryAssignment);
-			cleanAssignment = new ScoredAssignment(nextBestLeftConf, nextBestEnergy,0,0);
+			cleanAssignment = new ScoredAssignment(nextBestLeftConf, 0,nextBestEnergy,0);
 			add(cleanAssignment);
 		}
 		
@@ -658,6 +660,19 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			return Double.compare(score, arg0.score);
 		}
 		
+		public boolean equals(ScoredAssignment other)
+		{
+			if(other.score != score)
+				return false;
+			if(other.assignment.size() != assignment.size())
+				return false;
+			if(!other.assignment.pos.containsAll(assignment.pos))
+				return false;
+			if(!other.assignment.isSameTuple(assignment))
+				return false;
+			return true;
+		}
+		
 		public ScoredAssignment copy()
 		{
 			return new ScoredAssignment(assignment, selfScore, leftScore, rightScore);
@@ -665,12 +680,26 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 		public String toString()
 		{
-			return "{{" + assignment+":"+score+"}}";
+			return "{{" + assignment+":"+score+", self:"+selfScore+", left: "+leftScore+", right:"+rightScore+"}}";
 		}
 	}
 
 	public RCTuple nextBestConformation () {
 		return nextBestConformation(emptyConf);
+	}
+	
+	private class UniqueConfList extends LinkedList<ScoredAssignment>
+	{
+		private Set<ScoredAssignment> confSet = new TreeSet<ScoredAssignment>();
+		@Override
+		public boolean add(ScoredAssignment conf)
+		{
+			if(confSet.contains(conf))
+				System.err.println("Dupe conf.");
+			assert(!confSet.contains(conf));
+			return super.add(conf);
+		}
+		
 	}
 }
 

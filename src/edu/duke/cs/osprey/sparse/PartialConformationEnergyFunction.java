@@ -26,15 +26,10 @@ public class PartialConformationEnergyFunction {
 	
 	public double computePartialEnergy(RCTuple partialAssignment)
 	{
-		return computePartialEnergy(null, partialAssignment);
+		return computePartialEnergyGivenPriorConformation(null, partialAssignment);
 	}
 	
 	public double computePartialEnergyGivenPriorConformation(RCTuple priorConformation, RCTuple partialAssignment)
-	{
-		return 0;
-	}
-	
-	public double computePartialEnergy(RCTuple priorConformation, RCTuple partialAssignment)
 	{
 		RCTuple combinedAssignment = new RCTuple();
 		double MEnergy = 0;
@@ -47,6 +42,8 @@ public class PartialConformationEnergyFunction {
 		
 		return eMat.getInternalEnergy(combinedAssignment) - MEnergy;
 	}
+	
+
 	
 	public double computePartialEnergyOld(RCTuple priorConformation, RCTuple partialAssignment)
 	{
