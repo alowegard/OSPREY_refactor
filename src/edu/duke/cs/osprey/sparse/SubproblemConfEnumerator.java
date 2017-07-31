@@ -8,6 +8,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
+import java.util.TreeSet;
+
 import edu.duke.cs.osprey.confspace.RCTuple;
 
 public class SubproblemConfEnumerator implements ConformationProcessor {
@@ -220,10 +223,12 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		{
 			RCTuple topHeapConf = getHeap(queryConf).peek().assignment.copy();
 			topHeapConf = topHeapConf.combineRC(queryConf);
+			
 			if(!childConfs.hasMoreConformations(topHeapConf) && getHeap(queryConf).size() > 0)
 			{
 				debugPrint("This will fail. No child confs, but still have lambda confs.");
 			}
+			
 		}
 
 		return getHeap(queryConf).size() > 0;
@@ -412,15 +417,20 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				{
 					debugPrint("Creating new conf list for "+queryConf);
 					List<ScoredAssignment> newConfList = new LinkedList<>();
-					double nextRightConfE = rightSubproblemEnum.nextBestEnergy(queryConf);
-					debugPrint("Polling new conformation from right side with "+queryConf+"...");
-					RCTuple nextRightConf = rightSubproblemEnum.nextBestConformation(queryConf);
+					double nextRightConfE = rightSubproblemEnum.nextBestEnergy(templateConf);
+					debugPrint("Polling new conformation from right side with "+templateConf+"...");
+					RCTuple nextRightConf = rightSubproblemEnum.nextBestConformation(templateConf);
 					RCTuple rightPart = rightSubproblemEnum.sourceProblem.extractSubproblemLAssignment(nextRightConf);
 					newConfList.add(new ScoredAssignment(rightPart, nextRightConfE, 0, 0));
-
+					assert(newConfList.size() == 1);
 					rightConfLists.put(templateConf.toString(), newConfList);
+					debugPrint("Created new conf list for "+queryConf+": "+newConfList+";"+newConfList.hashCode());
 				}
 				rightConfLists.put(queryConf.toString(), rightConfLists.get(templateConf.toString()));
+			}
+			if(rightConfLists.get(queryConf.toString()).size() > 1)
+			{
+				debugPrint("Bugbug.");
 			}
 			return rightConfLists.get(queryConf.toString());
 		}
@@ -434,7 +444,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				rightConfMap.put(queryConf.toString(), new RightConf(
 						queryConf, getRightConfList(queryConf)));
 			}
-			
 			return rightConfMap.get(queryConf.toString());
 		}
 		
@@ -467,6 +476,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		public RightConf(RCTuple conf, List<ScoredAssignment> rightConfs){
 			queryAssignment = conf;
 			confList = rightConfs;
+			checkList(confList);
 		}
 
 		public void updateConf (SubproblemConfEnumerator rightSubproblem) {
@@ -483,6 +493,10 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 				RCTuple nextRightConf = rightSubproblem.nextBestConformation(rightMAssignment);
 				RCTuple rightPart = rightSubproblem.sourceProblem.extractSubproblemLAssignment(nextRightConf);
 				confList.add(new ScoredAssignment(rightPart, nextRightConfE, 0, 0));
+				if(confList.size() > 1 && queryAssignment.pos.contains(0))
+				{
+					System.err.println("Not valid in our current test scenario...");
+				}
 			}
 		}
 
@@ -500,16 +514,15 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 
 		public RCTuple pollCurConf () {
-			if(confList == null)
-			{
-				System.err.println("No confList. Why do we exist??");
-			}
+
+			checkList(confList);
+
 			if(confListIndex >= confList.size())
 			{
 				System.err.println("No confs...");
 			}
 			assert(confListIndex < confList.size());
-			debugPrint("Using conf "+confListIndex+" from list "+confList);
+			debugPrint("Using conf "+confListIndex+" from list "+confList+";"+confList.hashCode());
 			RCTuple output = confList.get(confListIndex).assignment;
 			confListIndex++;
 			debugPrint("Polled conf "+output+", index advanced to "+confListIndex);
@@ -518,6 +531,31 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 		public RCTuple peekCurConf () {
 			return confList.get(confListIndex).assignment;
+		}
+		
+		private void checkList(List<ScoredAssignment> confs)
+		{
+			if(confs == null)
+			{
+				System.err.println("No confList. Why do we exist??");
+			}
+			if(confs.size() > 0 && confs.get(0).assignment.pos.size() == 1 &&confs.get(0).assignment.pos.contains(5))
+			{
+				debugPrint("This is it.");
+				debugPrint(confs.hashCode());
+			}
+				
+			Set<String> confSet = new TreeSet<String>();
+			for(ScoredAssignment conf : confs)
+			{
+				String assignmentString = conf.assignment.toString();
+				if(confSet.contains(assignmentString))
+				{
+					System.err.println("Failure. Duplicate right conformations...");
+				}
+				assert(!confSet.contains(assignmentString));
+				confSet.add(assignmentString);
+			}
 		}
 	}
 	
