@@ -320,6 +320,8 @@ public class Subproblem {
 	}
 	
 	public RCTuple extractSubproblemMAssignment (RCTuple queryAssignment) {
+		if(queryAssignment.size() < 1)
+			return queryAssignment;
 		RCTuple filteredTuple = new RCTuple();
 
 		for(int i = 0; i < queryAssignment.size(); i++)
@@ -346,6 +348,40 @@ public class Subproblem {
 			}	
 		}
 		assert(MSet.size() == filteredTuple.size());
+
+		return filteredTuple;
+	}
+	
+	
+	
+
+	public RCTuple extractSubproblemLAssignment (RCTuple queryAssignment) {
+		RCTuple filteredTuple = new RCTuple();
+
+		for(int i = 0; i < queryAssignment.size(); i++)
+		{
+			int residueIndex = queryAssignment.pos.get(i);
+			if(LSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+		}		
+		if(LSet.size() != filteredTuple.size())
+		{
+			System.err.println("Tuple filter failed. Size is wrong.");
+			System.out.println("LSet: "+LSet);
+			filteredTuple = new RCTuple();
+
+			for(int i = 0; i < queryAssignment.size(); i++)
+			{
+				int residueIndex = queryAssignment.pos.get(i);
+				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
+				if(LSet.contains(PDBIndex))
+				{
+					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
+					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+				}
+			}	
+		}
+		assert(LSet.size() == filteredTuple.size());
 
 		return filteredTuple;
 	}
@@ -433,7 +469,23 @@ public class Subproblem {
     
     public String toString()
     {
-    	return printTreeDesign("");
+    	String out = "[";
+        for(int i : lambdaSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]";
+
+        out += " - L Set:[";
+
+        for(int i : LSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]";
+
+        out += " - M Set:[";
+
+        for(int i : MSet)
+            out+=residueIndexMap.PDBIndexToDesignIndex(i)+", ";
+        out+="]";
+        return out;
     }
 
 	public BigInteger getLambdaConformations () {
@@ -459,5 +511,6 @@ public class Subproblem {
 		return lambdaAssignment.size() == lambdaSet.size()
 				|| (isInternalNode() && leftSubproblem.isValidConf(assignment));
 	}
+
 
 }

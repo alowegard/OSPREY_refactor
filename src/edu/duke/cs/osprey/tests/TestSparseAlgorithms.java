@@ -295,9 +295,10 @@ public class TestSparseAlgorithms  extends TestCase {
 		
 		int maxConfNum = 20;
 		int numConfs = 0;
+		System.out.println("========================== ENUMERATION START =============================\n\n");
 		while(enumerator.hasMoreConformations()&& numConfs <maxConfNum)
 		{
-			System.out.println("Conf number: "+ numConfs);
+			System.out.println("=================== CONFORMATION "+ numConfs+ "===========================================");
 			double nextBestEnergy = enumerator.nextBestEnergy();
 			RCTuple nextBestConf = enumerator.nextBestConformation();
 			System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
