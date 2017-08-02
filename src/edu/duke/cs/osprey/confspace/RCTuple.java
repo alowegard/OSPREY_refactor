@@ -80,11 +80,9 @@ public class RCTuple implements Serializable {
      * different RC.
      * @param source
      */
-    public RCTuple combineRC(RCTuple source)
-    {
+    public RCTuple combineRC(RCTuple source) {
     	RCTuple output = copy();
-    	for(int RCIndex = 0; RCIndex < source.size(); RCIndex++)
-    	{
+    	for(int RCIndex = 0; RCIndex < source.size(); RCIndex++) {
     		int sourcePos = source.pos.get(RCIndex);
     		int sourceRC = source.RCs.get(RCIndex);
     		assert(sourceRC != -1); 
@@ -104,6 +102,24 @@ public class RCTuple implements Serializable {
     	}
 
     	return output;
+    }
+    
+    public boolean consistentWith(RCTuple otherTuple) {
+    	for(int RCIndex = 0; RCIndex < otherTuple.size(); RCIndex++) {
+    		int sourcePos = otherTuple.pos.get(RCIndex);
+    		int sourceRC = otherTuple.RCs.get(RCIndex);
+    		assert(sourceRC != -1); 
+    		
+    		int correspondingRC = lookupRC(sourcePos);
+    		if(correspondingRC != -1 && correspondingRC != sourceRC)
+    		{
+    			System.out.println("Inconsistent RCs: "
+    					+this+" != "+otherTuple+". They differ at position "+sourcePos);
+    			return false;
+    		}
+    	}
+
+    	return true;
     }
     
     private int lookupRC(int queryPos)

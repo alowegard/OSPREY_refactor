@@ -2,11 +2,14 @@ package edu.duke.cs.osprey.sparse;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
+
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.tools.ResidueIndexMap;
@@ -75,34 +78,38 @@ public class Subproblem {
 		
 	}
 	
-	public int mapSubproblemConfToIndex(RCTuple conf)
-	{
-		int subproblemIndex = -1;
-		int multiplier = 1;
-		for(int tupleIndex = 0; tupleIndex < conf.size(); tupleIndex++)
-		{
+	public int mapSubproblemConfToIndex(RCTuple conf) {
+		if(conf.size() < 1 || MSet.size() < 1)
+			return 0;
+		int largestDesignIndex = Collections.max(conf.pos)+1;
+		int[] RCSpaceRCIndices = new int[largestDesignIndex];
+
+		Arrays.fill(RCSpaceRCIndices,-1);
+		int[] RCSpaceSizes = new int[largestDesignIndex];
+		Arrays.fill(RCSpaceSizes,1);
+		for(int tupleIndex = 0; tupleIndex < conf.size(); tupleIndex++) {
 			int pos = conf.pos.get(tupleIndex);
 			int PDBIndex = residueIndexMap.designIndexToPDBIndex(pos);
 			int RC = conf.RCs.get(tupleIndex);
-			if(MSet.contains(PDBIndex))
-			{
-				if(subproblemIndex < 0)
-					subproblemIndex = 0;
+			if(MSet.contains(PDBIndex)) {
 				
 				int subspaceRCIndex = getRCSpaceRCIndex(PDBIndex, RC);
-				subproblemIndex += subspaceRCIndex*multiplier;
-				multiplier *= localConfSpace.getNum(pos);
+				RCSpaceRCIndices[pos] = subspaceRCIndex;
+				RCSpaceSizes[pos] = localConfSpace.getNum(pos);
 			}
 		}
-		if(subproblemIndex < 0)
-		{
-			// edge case: root edge has an empty query.
-			if(conf.size() < 1 || MSet.size() < 1)
-				return 0;
-			else
-				System.out.println("No M set assignment, can't compute corresponding heap.");
+
+		
+		int newSubproblemIndex = 0;
+		int newMultiplier = 1;
+		for(int i = 0; i < RCSpaceRCIndices.length; i++) {
+			if(RCSpaceRCIndices[i] > -1)
+			{
+				newSubproblemIndex += RCSpaceRCIndices[i]*newMultiplier;
+				newMultiplier *= RCSpaceSizes[i];
+			}
 		}
-		return subproblemIndex;
+		return newSubproblemIndex;
 	}
 
 	public int mapSubproblemConfToIndex(int[] localConf)
