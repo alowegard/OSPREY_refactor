@@ -125,6 +125,10 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		debugPrint("Returning "+outputAssignment+" from \n"+sourceProblem);
 		debugPrint("Heap status: ");
 		printHeap(lambdaHeap);
+		if(!lambdaHeap.isEmpty() && lambdaHeap.peek().score() < previousHeapRoot.score())
+		{
+			System.err.println("Error: the next best heap node is lower score than the one we're about to return.");
+		}
 		debugPrint("===================== End "+sourceProblem+" =============================================");
 		return outputAssignment;
 	}
@@ -148,7 +152,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
 		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
-		debugPrint("Mapping "+queryAssignment+" to lambda heap index "+lambdaHeapIndex);
 		String RCTupleKey = queryAssignment.toString();
 		//TODO: Add a check to see if the queryAssignment belongs to a template heap.
 		if(lambdaHeaps.size() <= lambdaHeapIndex || lambdaHeaps.get(lambdaHeapIndex) == null)
