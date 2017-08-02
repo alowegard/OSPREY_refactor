@@ -296,19 +296,23 @@ public class TestSparseAlgorithms  extends TestCase {
 		int maxConfNum = 20;
 		int numConfs = 0;
 		System.out.println("========================== ENUMERATION START =============================\n\n");
+		double lastConfEnergy = Double.NEGATIVE_INFINITY;
 		while(enumerator.hasMoreConformations()&& numConfs <maxConfNum)
 		{
+
+			numConfs++;
 			System.out.println("=================== CONFORMATION "+ numConfs+ "===========================================");
 			double nextBestEnergy = enumerator.nextBestEnergy();
 			RCTuple nextBestConf = enumerator.nextBestConformation();
 			System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
 			double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
-			System.out.println("True energy: "+trueEnergy);
-			numConfs++;
-			if(numConfs > 10)
+			if(lastConfEnergy > nextBestEnergy)
 			{
-				System.out.println("Debug.");
+				System.err.println("Enumeration error: conf "+(numConfs-1)+" has energy "
+						+lastConfEnergy+", which is greater than energy for conf "+numConfs+":"+nextBestEnergy);
 			}
+			lastConfEnergy = nextBestEnergy;
+			System.out.println("True energy: "+trueEnergy);
 		}
 		
 		GMECFinder sanityCheck = new GMECFinder();

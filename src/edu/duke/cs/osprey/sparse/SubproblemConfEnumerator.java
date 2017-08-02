@@ -74,7 +74,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
 		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy + rightEnergy, 0);
-		debugPrint("Processing "+conformation+", adding new template conf "+assignment);
+		//debugPrint("Processing "+conformation+", adding new template conf "+assignment);
 		templateHeap.add(assignment);
 		
 	}
@@ -203,7 +203,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			getHeap(queryConf);
 		}
 		ScoredAssignment bestConf = heap.peek();
-		double bestScore = bestConf.score;
+		double bestScore = bestConf.score();
 		return bestScore;
 	}
 	
@@ -328,7 +328,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		public double nextBestEnergy (RCTuple queryAssignment) {
 			if(rightConfs != null)
 			{
-				return getLeftHeapMap(queryAssignment).peek().score;
+				return getLeftHeapMap(queryAssignment).peek().score();
 			}
 			else
 			{
@@ -341,7 +341,8 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			if(!leftHeapMap.containsKey(queryAssignment.toString()))
 			{
 				RCTuple leftMAssignment = sourceProblem.leftSubproblem.extractSubproblemMAssignment(queryAssignment);
-				PriorityQueue<ScoredAssignment> newHeap = new LazyHeap(queryAssignment, leftSubproblem);
+				double initialRightenergy = rightSubproblem.nextBestEnergy(queryAssignment);
+				PriorityQueue<ScoredAssignment> newHeap = new LazyHeap(queryAssignment, leftSubproblem, initialRightenergy);
 				if(newHeap.size() < 1)
 				{
 					System.err.println("Empty new heap. Should be full of template nodes.");
@@ -499,7 +500,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 
 		public double peekConfEnergy () {
-			return confList.get(confListIndex).score;
+			return confList.get(confListIndex).score();
 		}
 
 		public boolean hasMoreConformations () {
@@ -559,16 +560,17 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	
 	private class LazyHeap extends PriorityQueue<ScoredAssignment>
 	{
-		private PriorityQueue<ScoredAssignment> templateQueue;
 		private boolean dirty;
 		private ScoredAssignment cleanAssignment = null;
 		private SubproblemConfEnumerator leftSubproblem;
 		private RCTuple queryAssignment;
+		private double initialRightEnergy = 0;
 		
-		public LazyHeap(RCTuple queryConf, SubproblemConfEnumerator leftChild)
+		public LazyHeap(RCTuple queryConf, SubproblemConfEnumerator leftChild, double defaultEnergy)
 		{
 			queryAssignment = queryConf;
 			leftSubproblem = leftChild;
+			initialRightEnergy = defaultEnergy;
 			addNewLeftConf();
 			peek();
 		}
@@ -577,16 +579,17 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 		private void addNewLeftConf()
 		{
-			leftSubproblem.hasMoreConformations(queryAssignment);
 			double nextBestEnergy = leftSubproblem.nextBestEnergy(queryAssignment);
-			leftSubproblem.hasMoreConformations(queryAssignment);
 			RCTuple nextBestLeftConf = leftSubproblem.nextBestConformation(queryAssignment);
-			cleanAssignment = new ScoredAssignment(nextBestLeftConf, 0,nextBestEnergy,0);
+			cleanAssignment = new ScoredAssignment(nextBestLeftConf, nextBestEnergy, initialRightEnergy, 0);
+
+			debugPrint("Creating new left conf "+cleanAssignment);
 			add(cleanAssignment);
 		}
 		
 		public ScoredAssignment poll()
 		{
+			cleanHeap();
 			ScoredAssignment nextBestAssignment = super.poll();
 			if(nextBestAssignment == cleanAssignment)
 				dirty = true;
@@ -606,79 +609,13 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 		public ScoredAssignment peek()
 		{
-			ScoredAssignment output = super.peek();
 			cleanHeap();
+			ScoredAssignment output = super.peek();
 			return output;
 		}
 		
 	}
 	
-	private class ScoredAssignment implements Comparable<ScoredAssignment>
-	{
-		double score = 0;
-		private double selfScore = 0;
-		private double leftScore = 0;
-		private double rightScore = 0;
-		RCTuple assignment;
-		public ScoredAssignment (RCTuple conformation, double selfEnergy,
-				double leftBestEnergy, double rightBestEnergy) {
-			assignment = conformation;
-			if(assignment == null)
-			{
-				System.err.println("Created a conformation with no actual conformation.");
-			}
-			selfScore = selfEnergy;
-			leftScore = leftBestEnergy;
-			rightScore = rightBestEnergy;
-			score = leftScore+rightScore+selfScore;
-		}
-		
-		public void updateScore(double leftBestEnergy, double rightBestEnergy)
-		{
-			leftScore = leftBestEnergy;
-			rightScore = rightBestEnergy;
-			score = leftScore+rightScore+selfScore;
-		}
-		
-		public void updateLeftScore(double leftBestEnergy)
-		{
-			leftScore = leftBestEnergy;
-			score = leftScore+rightScore+selfScore;
-		}
-		
-		public void updateRightScore(double rightBestEnergy)
-		{
-			rightScore = rightBestEnergy;
-			score = leftScore+rightScore+selfScore;
-		}
-		@Override
-		public int compareTo (ScoredAssignment arg0) {
-			return Double.compare(score, arg0.score);
-		}
-		
-		public boolean equals(ScoredAssignment other)
-		{
-			if(other.score != score)
-				return false;
-			if(other.assignment.size() != assignment.size())
-				return false;
-			if(!other.assignment.pos.containsAll(assignment.pos))
-				return false;
-			if(!other.assignment.isSameTuple(assignment))
-				return false;
-			return true;
-		}
-		
-		public ScoredAssignment copy()
-		{
-			return new ScoredAssignment(assignment, selfScore, leftScore, rightScore);
-		}
-		
-		public String toString()
-		{
-			return "{{" + assignment+":"+score+", self:"+selfScore+", left: "+leftScore+", right:"+rightScore+"}}";
-		}
-	}
 
 	public RCTuple nextBestConformation () {
 		return nextBestConformation(emptyConf);
