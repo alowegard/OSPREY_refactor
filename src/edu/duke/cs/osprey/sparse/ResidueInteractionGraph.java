@@ -97,10 +97,25 @@ public class ResidueInteractionGraph {
 		return outputGraph;
 	}
 	
+	public static ResidueInteractionGraph generateCompleteGraph(Set<Integer> residueIndexSet)
+	{
+		ResidueInteractionGraph outputGraph = new ResidueInteractionGraph();
+		for(int i : residueIndexSet)
+		{
+			outputGraph.addVertex(i);
+			for(int j: residueIndexSet)
+			{
+				if(i == j) continue;
+				outputGraph.addEdge(i,j);
+			}
+		}
+		return outputGraph;
+	}
+	
 	public static ResidueInteractionGraph generateCompleteGraph(SearchProblem problem)
 	{
-		ResidueInteractionGraph graph = new ResidueInteractionGraph();
 		Set<Integer> residueIndexSet = createResidueIndexSet(problem);
+		ResidueInteractionGraph graph = generateCompleteGraph(residueIndexSet);
 		graph.setMutableResidues(residueIndexSet);
 		
 		return graph;
@@ -403,14 +418,19 @@ public class ResidueInteractionGraph {
 			PrintStream printStream = new PrintStream(bufferedOutputStream);
 
 
-			for(Integer i : adjacencyMatrix.keySet())
+			for(Integer i : vertices)
 			{
+				if(!adjacencyMatrix.containsKey(i) 
+						|| adjacencyMatrix.get(i).size() < 1)
+				{
+					printStream.println(i+","+i);
+					continue;
+				}
 				for(Integer j : adjacencyMatrix.get(i))
 				{
 					printStream.println(i+","+j);
 				}
-				if(adjacencyMatrix.isEmpty())
-					printStream.println(i+","+i);
+
 			}
 			printStream.close();
 		}        
