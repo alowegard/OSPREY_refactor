@@ -293,7 +293,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
 		
-		int maxConfNum = 10;
+		int maxConfNum = 500000;
 		int numConfs = 0;
 		System.out.println("========================== ENUMERATION START =============================\n\n");
 		double lastConfEnergy = Double.NEGATIVE_INFINITY;
@@ -301,7 +301,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		{
 
 			numConfs++;
-			SubproblemConfEnumerator.debugOutput = (numConfs < 8);
+			SubproblemConfEnumerator.debugOutput = false;
 			System.out.println("=================== CONFORMATION "+ numConfs+ "===========================================");
 			double nextBestEnergy = enumerator.nextBestEnergy();
 			RCTuple nextBestConf = enumerator.nextBestConformation();
@@ -315,7 +315,7 @@ public class TestSparseAlgorithms  extends TestCase {
 
 				System.out.println("!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~! ERROR !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!");
 			}
-			assert(lastConfEnergy < nextBestEnergy);
+			assert(lastConfEnergy <= nextBestEnergy);
 			lastConfEnergy = nextBestEnergy;
 			System.out.println("True energy: "+trueEnergy);
 		}

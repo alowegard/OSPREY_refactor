@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.sparse;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -74,7 +75,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
 		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy + rightEnergy, 0);
-		//debugPrint("Processing "+conformation+", adding new template conf "+assignment);
+		debugPrint("Processing "+conformation+", adding new template conf "+assignment);
 		templateHeap.add(assignment);
 		
 	}
@@ -92,8 +93,10 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			System.err.println("Should not have polled, empty heap at \n"+sourceProblem);
 		}
 		ScoredAssignment previousHeapRoot = lambdaHeap.poll();
+		double sanityCheckEnergy = previousHeapRoot.score();
 		RCTuple curBestAssignment = previousHeapRoot.assignment;
 		RCTuple outputAssignment = previousHeapRoot.assignment.copy();
+
 		outputAssignment = outputAssignment.combineRC(queryAssignment);
 		RCTuple combinedqueryAssignment = queryAssignment.combineRC(curBestAssignment);
 
@@ -125,11 +128,14 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		debugPrint("Returning "+outputAssignment+" from \n"+sourceProblem);
 		debugPrint("Heap status: ");
 		printHeap(lambdaHeap);
-		if(!lambdaHeap.isEmpty() && lambdaHeap.peek().score() < previousHeapRoot.score())
-		{
-			System.err.println("Error: the next best heap node is lower score than the one we're about to return.");
-		}
 		debugPrint("===================== End "+sourceProblem+" =============================================");
+		if(lambdaHeap.size() > 0 && lambdaHeap.peek().score() < sanityCheckEnergy)
+		{
+			System.err.println("The next conf will have a LOWER energy: "+lambdaHeap.peek().score()+" < "+sanityCheckEnergy);
+			debugPrint(lambdaHeap.peek());
+			debugPrint(outputAssignment+", energy "+sanityCheckEnergy);
+		}
+		assert(lambdaHeap.size() < 1 || lambdaHeap.peek().score() >= sanityCheckEnergy);
 		return outputAssignment;
 	}
 	
@@ -192,7 +198,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		RCTuple MTuple = sourceProblem.extractSubproblemAssignment(queryAssignment);
 
 		Map<String, PriorityQueue<ScoredAssignment>> heapMap = lambdaHeaps.get(lambdaHeapIndex);
-		PriorityQueue<ScoredAssignment> newHeap = new PriorityQueue<ScoredAssignment>(getTemplateHeap(MTuple));
+		PriorityQueue<ScoredAssignment> newHeap = new PriorityQueue<ScoredAssignment>();
+		for(ScoredAssignment conf: getTemplateHeap(MTuple))
+		{
+			newHeap.add(conf.copy());
+		}
 		heapMap.put(RCTupleKey, newHeap);
 	}
 	
@@ -209,8 +219,12 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			debugPrint("No confs at "+sourceProblem);
 			getHeap(queryConf);
 		}
+		debugPrint("Getting next best energy for "+queryConf+" at "+sourceProblem);
+		printHeap(heap);
 		ScoredAssignment bestConf = heap.peek();
 		double bestScore = bestConf.score();
+
+		debugPrint("Next best energy is "+heap.peek().score());
 		return bestScore;
 	}
 	
@@ -267,10 +281,18 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		debugPrint("Heap "+heap.hashCode()+":");
 		if(heap instanceof LazyHeap)
 			debugPrint("Lazy Heap default Energy: "+((LazyHeap) heap).initialRightEnergy);
-		for(ScoredAssignment conf:heap)
+		PriorityQueue<ScoredAssignment> cleanup = new PriorityQueue<>();
+		int maxConfsToPrint = 10;
+		int numPrinted = 0;
+		while(!heap.isEmpty() && numPrinted < maxConfsToPrint)
 		{
+			ScoredAssignment conf = heap.poll();
+			cleanup.add(conf);
 			debugPrint(conf);
+			numPrinted++;
 		}
+		while(!cleanup.isEmpty())
+			heap.add(cleanup.poll());
 	}
 	
 	
