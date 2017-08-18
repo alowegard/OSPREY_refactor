@@ -16,6 +16,7 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 	private PartialConformationEnergyFunction energyFunction;
 	private ArrayList<Map<String, PriorityQueue<ScoredAssignment>>> lambdaHeaps; 
 	private ArrayList<PriorityQueue<ScoredAssignment>> templateHeaps;
+	private Map<String, Double> partialSums;
 	private Subproblem sourceProblem;
 	private SubproblemSeqEnumerator leftSubproblem;
 	private SubproblemSeqEnumerator rightSubproblem;
@@ -32,6 +33,7 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 		int subproblemLocalConfs = subproblem.getTotalMConformations().intValue();
 		lambdaHeaps = new ArrayList<>();
 		templateHeaps = new ArrayList<>();
+		partialSums = new HashMap<>();
 		while(lambdaHeaps.size() <= subproblemLocalConfs)
 			lambdaHeaps.add(null);
 		while(templateHeaps.size() <= subproblemLocalConfs)
@@ -212,15 +214,27 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 		return false;
 	}
 	
+
+	
 	/***
-	 * This function takes a MUlambda assignment and returns the
-	 * corresponding heap used to make the multisequence bound.
+	 * This function takes a complete sequence and returns
+	 * the corresponding partial Sparse K* score.
 	 * @param queryConf
 	 * @return
 	 */
-	public PriorityQueue<ScoredSeq> getMultiSequenceHeap(RCTuple queryConf)
+	public double getlogPartialKStarBound(RCTuple queryConf)
 	{
-		return null;
+		/*
+		 * 1. Map conf to sequence.
+		 * 2. Get Sequence heap
+		 * 3. For each conf in the sequence heap, get the child conf 
+		 * 		partial sum.
+ 		 * 4. Return sum of child conf partial sums.
+		 */
+		KStarHeap heap = getMultiSequenceHeap(queryConf);
+		double sum = childConfs.getChildKStarMultiSequenceBounds(queryConf);
+		double localSum = heap.getHeapSum();
+		return sum+localSum;
 	}
 	
 	/***
@@ -229,9 +243,40 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 	 * @param queryConf
 	 * @return
 	 */
-	public double getPartialKStarScore(RCTuple queryConf)
+	public double getlogPartialKStarScore(RCTuple queryConf)
 	{
-		return -1;
+		/*
+		 * 1. Map conf to sequence.
+		 * 2. Get Sequence heap
+		 * 3. For each conf in the sequence heap, get the child conf 
+		 * 		partial sum.
+ 		 * 4. Return sum of child conf partial sums.
+		 */
+		KStarHeap heap = getSingleSequenceHeap(queryConf);
+		double sum = childConfs.getChildKStarSingleSequenceSums(queryConf);
+		double localSum = heap.getHeapSum();
+		return sum+localSum;
+	}
+	
+
+	private KStarHeap getSingleSequenceHeap(RCTuple queryConf) {
+		/*
+		 * 1. Map conf to sequence.
+		 * 2. Get Sequence heap
+ 		 * 3. Return heap.
+		 */
+		return null;
+	}
+	
+	/***
+	 * This function takes a MUlambda assignment and returns the
+	 * corresponding heap used to make the multisequence bound.
+	 * @param queryConf
+	 * @return
+	 */
+	public KStarHeap getMultiSequenceHeap(RCTuple queryConf)
+	{
+		return null;
 	}
 
 	@Override
@@ -242,6 +287,13 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 		 * 2. Update M-sequence lambda heap for the right conf, as well as the multisequence lambda heap.
 		 * 3. 
 		 */
+		String sequence = sourceProblem.getSequenceForConf(conformation);
+		System.out.println("Processing "+conformation+", sequence ["+sequence+"]");
+		RCTuple MAssignment = sourceProblem.extractSubproblemMAssignment(conformation);
+		RCTuple lambdaAssignment = sourceProblem.extractSubproblemLambdaAssignment(conformation);
+		double energy = energyFunction.computePartialEnergyGivenPriorConformation(MAssignment,lambdaAssignment);
+		double runningPartialSum = partialSums.get(sequence);
+		partialSums.put(sequence, runningPartialSum+energy);
 		if(leftSubproblem == null && rightSubproblem == null)
 		{
 			/* Process partial score per conformation */
@@ -325,6 +377,16 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 			rightConfs = rightManager;
 		}
 		
+		public double getChildKStarMultiSequenceBounds(RCTuple queryConf) {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public double getChildKStarSingleSequenceSums(RCTuple queryConf) {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
 		public RCTuple getNextChildAssignment(RCTuple queryAssignment)
 		{
 			RCTuple nextBestChildConf = null;
@@ -446,6 +508,14 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 	
 		
 		
+	}
+	
+	private class KStarHeap extends PriorityQueue<ScoredAssignment>
+	{
+		public double getHeapSum()
+		{
+			return -1;
+		}
 	}
 	
 	private class RightConfManager 

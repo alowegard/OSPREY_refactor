@@ -56,7 +56,7 @@ public class ResidueIndexMap {
 		String output = "";
 		for(int i = 0; i < conf.size(); i++)
 		{
-			output+=RCToAAName.get(conf.pos.get(i)+":"+conf.RCs.get(i));
+			output+=conf.pos.get(i)+":"+RCToAAName.get(conf.pos.get(i)+":"+conf.RCs.get(i))+", ";
 		}
 		return output;
 	}

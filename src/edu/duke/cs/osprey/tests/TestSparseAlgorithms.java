@@ -1,10 +1,13 @@
 package edu.duke.cs.osprey.tests;
 
 import static org.junit.Assert.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
+
 import org.junit.Test;
+
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
@@ -25,6 +28,7 @@ import edu.duke.cs.osprey.sparse.ResidueInteractionGraph;
 import edu.duke.cs.osprey.sparse.SparseKStarScoreEvaluator;
 import edu.duke.cs.osprey.sparse.Subproblem;
 import edu.duke.cs.osprey.sparse.SubproblemConfEnumerator;
+import edu.duke.cs.osprey.sparse.SubproblemSeqEnumerator;
 import edu.duke.cs.osprey.sparse.TreeEdge;
 import edu.duke.cs.osprey.sparse.TreeNode;
 import edu.duke.cs.osprey.tools.ResidueIndexMap;
@@ -279,7 +283,7 @@ public class TestSparseAlgorithms  extends TestCase {
 	public void testComputeKStarScore()
 	{
 		generateFilesForRunSize(RUN_SIZES[0]);
-		runSparseConfEnumeration();
+		runSparseKStarScoreComputation();
 	}
 
 	@Test
@@ -321,7 +325,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		System.out.println(sparseProblem.printTreeDesign());
 		EnergyFunction efunction = searchSpace.fullConfE;
 		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(searchSpace, efunction, conformationSpace);
-		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);
+		SubproblemSeqEnumerator enumerator = new SubproblemSeqEnumerator(sparseProblem, peFunction);
 		sparseProblem.preprocess();
 		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
 		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
