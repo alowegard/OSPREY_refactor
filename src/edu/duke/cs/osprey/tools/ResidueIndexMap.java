@@ -4,11 +4,14 @@ import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.confspace.RCTuple;
 
 public class ResidueIndexMap {
 
 	private Map<Integer, Integer> designIndexToPDBIndex = new HashMap<>();
 	private Map<Integer, Integer> PDBIndexToDesignIndex = new HashMap<>();
+	private Map<String, String> RCToAAName = new HashMap<>();
 	
 	public static ResidueIndexMap createResidueIndexMap(ConfSpace conformationSpace)
 	{
@@ -41,6 +44,20 @@ public class ResidueIndexMap {
 			int designIndex = positionSpace.designIndex;
 			designIndexToPDBIndex.put(designIndex, PDBIndex);
 			PDBIndexToDesignIndex.put(PDBIndex, designIndex);
+			for(RC rotamer: positionSpace.RCs)
+			{
+				RCToAAName.put(positionSpace.designIndex+":"+rotamer.RCIndex, rotamer.AAType);
+			}
 		}
+	}
+	
+	public String getSequenceOfRCTuple(RCTuple conf)
+	{
+		String output = "";
+		for(int i = 0; i < conf.size(); i++)
+		{
+			output+=RCToAAName.get(conf.pos.get(i)+":"+conf.RCs.get(i));
+		}
+		return output;
 	}
 }

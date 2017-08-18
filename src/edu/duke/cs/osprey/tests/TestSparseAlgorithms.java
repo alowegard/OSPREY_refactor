@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.tests;
 
 import static org.junit.Assert.*;
+import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import org.junit.Test;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -36,16 +38,28 @@ public class TestSparseAlgorithms  extends TestCase {
 	SearchProblem searchSpace;
 	RCs fullRCSpace;
 	ResidueIndexMap resMap;
-	private static boolean bdGenerated = false;
+	private static final int[] RUN_SIZES = {4, 180, 266880};
+	private static final int MAX_SIZE = RUN_SIZES[2];
 	protected void setUp () throws Exception {
 		super.setUp();
 
 
+	}
+
+	private void generateFilesForRunSize (int runSize) {
 		String[] testArgs = new String[]
 				{"-c", "test/1CC8Sparse/KStar.cfg", "Dummy command", 
-						"test/1CC8Sparse/DEESparse.cfg", "test/1CC8Sparse/SystemSparse.cfg"};
+						"test/1CC8Sparse/DEESparse"+runSize+"Confs.cfg", "test/1CC8Sparse/SystemSparse"+runSize+"Confs.cfg"};
 		cfp = new ConfigFileParser(testArgs);//args 1, 3+ are configuration files
 		cfp.loadData();
+		try{
+			File deleteEMat = new File(cfp.getParams().getValue("runName")+".EMAT.dat");
+			deleteEMat.delete();
+		} catch (Exception e)
+		{
+			System.err.println("Could not delete energy matrix, this could crash.");
+			e.printStackTrace();
+		}
 		searchSpace = cfp.getSearchProblem();
         double Ew = cfp.getParams().getDouble("Ew");
 		searchSpace.loadEnergyMatrix();
@@ -94,41 +108,37 @@ public class TestSparseAlgorithms  extends TestCase {
         fullRCSpace = new RCs(searchSpace.pruneMat);
         System.out.println("Conformations after pruning: "+fullRCSpace.unprunedConfsFromRCs());
         fullRCSpace.breakDownRCSpace();
-		
-		
-		if(!bdGenerated)
-		{
-			String runName = cfp.getParams().getValue("runName");
-			String graphFileName = "test/1CC8Sparse/"+runName;
-			String bdFileName = "test/1CC8Sparse/"+runName+"_bd";
-			
-			EnergyFunction efunction = searchSpace.fullConfE;
-			ConfSpace conformationSpace = searchSpace.confSpace;
-			ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
-			graph.computeEdgeBounds(searchSpace, efunction);
-			graph.printStatistics();
-			//graph.applyEnergyCutoff(0.2, searchSpace, efunction);
-			graph.applyDistanceCutoff(3, searchSpace, efunction);
-			graph.writeGraph(graphFileName);
-
-			String[] args = new String[]{graphFileName, bdFileName};
-			long startBD = System.currentTimeMillis();
-			BranchDecomposition.main(args);
-			long endBD = System.currentTimeMillis();
-			long BDTime = endBD - startBD;
-
-			System.out.println("Branch Decomposition generation time: "+BDTime);
-			long start = System.currentTimeMillis();
-			System.out.println("Branch Decomposition generated. Calculating GMEC...");
 
 
 
-			long end = System.currentTimeMillis();
-			long time = end - start;
-			System.out.println("Total time BD generation time taken in ms: "+time);
-			bdGenerated = true;
-		}
+        String runName = cfp.getParams().getValue("runName");
+        String graphFileName = "test/1CC8Sparse/"+runName;
+        String bdFileName = "test/1CC8Sparse/"+runName+"_bd";
 
+        EnergyFunction efunction = searchSpace.fullConfE;
+        ConfSpace conformationSpace = searchSpace.confSpace;
+        ResidueInteractionGraph graph = ResidueInteractionGraph.generateCompleteGraph(searchSpace);
+        graph.computeEdgeBounds(searchSpace, efunction);
+        graph.printStatistics();
+        //graph.applyEnergyCutoff(0.2, searchSpace, efunction);
+        graph.applyDistanceCutoff(3, searchSpace, efunction);
+        graph.writeGraph(graphFileName);
+
+        String[] args = new String[]{graphFileName, bdFileName};
+        long startBD = System.currentTimeMillis();
+        BranchDecomposition.main(args);
+        long endBD = System.currentTimeMillis();
+        long BDTime = endBD - startBD;
+
+        System.out.println("Branch Decomposition generation time: "+BDTime);
+        long start = System.currentTimeMillis();
+        System.out.println("Branch Decomposition generated. Calculating GMEC...");
+
+
+
+        long end = System.currentTimeMillis();
+        long time = end - start;
+        System.out.println("Total time BD generation time taken in ms: "+time);
 	}
 
 	protected void tearDown () throws Exception {
@@ -143,6 +153,8 @@ public class TestSparseAlgorithms  extends TestCase {
 	@Test
 	public void testConstrainConfSpace()
 	{
+
+		generateFilesForRunSize(MAX_SIZE);
 		RCTuple initialConf = new RCTuple();
 		for(int i = 0; i < searchSpace.confSpace.numPos/2; i++)
 		{
@@ -194,6 +206,7 @@ public class TestSparseAlgorithms  extends TestCase {
 	public void testSubproblemExhaustiveEnumeration()
 	{
 
+		generateFilesForRunSize(MAX_SIZE);
 		String runName = cfp.getParams().getValue("runName");
 		SearchProblem problem = cfp.getSearchProblem();
 		EnergyFunction efunction = problem.fullConfE;
@@ -232,7 +245,7 @@ public class TestSparseAlgorithms  extends TestCase {
 	@Test
 	public void testFullTreeExhaustiveEnumeration()
 	{
-
+		generateFilesForRunSize(MAX_SIZE);
 		String runName = cfp.getParams().getValue("runName");
 		SearchProblem problem = cfp.getSearchProblem();
 		ConfSpace conformationSpace = problem.confSpace;
@@ -265,13 +278,58 @@ public class TestSparseAlgorithms  extends TestCase {
 	@Test
 	public void testComputeKStarScore()
 	{
-
+		generateFilesForRunSize(RUN_SIZES[0]);
+		runSparseConfEnumeration();
 	}
 
-
+	@Test
+	public void testEnumerate4Conformations()
+	{
+		generateFilesForRunSize(RUN_SIZES[0]);
+		runSparseConfEnumeration();
+	}
+	
+	@Test
+	public void testEnumerate180Conformations()
+	{
+		generateFilesForRunSize(RUN_SIZES[1]);
+		runSparseConfEnumeration();
+	}
+	
 	@Test
 	public void testEnumerateConformations()
 	{
+		generateFilesForRunSize(MAX_SIZE);
+		runSparseConfEnumeration();
+	}
+	
+	private void runSparseKStarScoreComputation()
+	{
+		String runName = cfp.getParams().getValue("runName");
+		SearchProblem problem = cfp.getSearchProblem();
+		ConfSpace conformationSpace = problem.confSpace;
+
+
+		String bdFile = "test/1CC8Sparse/"+runName+"_bd";
+
+		BranchTree tree = new BranchTree(bdFile, problem);
+		TreeEdge rootEdge = tree.getRootEdge();
+		rootEdge.compactTree();
+		
+
+		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
+		System.out.println(sparseProblem.printTreeDesign());
+		EnergyFunction efunction = searchSpace.fullConfE;
+		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(searchSpace, efunction, conformationSpace);
+		SubproblemConfEnumerator enumerator = new SubproblemConfEnumerator(sparseProblem, peFunction);
+		sparseProblem.preprocess();
+		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
+		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
+		
+		
+	}
+
+	private void runSparseConfEnumeration () {
 		String runName = cfp.getParams().getValue("runName");
 		SearchProblem problem = cfp.getSearchProblem();
 		ConfSpace conformationSpace = problem.confSpace;
@@ -302,10 +360,10 @@ public class TestSparseAlgorithms  extends TestCase {
 
 			numConfs++;
 			SubproblemConfEnumerator.debugOutput = false;
-			System.out.println("=================== CONFORMATION "+ numConfs+ "===========================================");
+			//System.out.println("=================== CONFORMATION "+ numConfs+ "===========================================");
 			double nextBestEnergy = enumerator.nextBestEnergy();
 			RCTuple nextBestConf = enumerator.nextBestConformation();
-			System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
+			//System.out.println("Next best conf: "+nextBestConf+", energy "+nextBestEnergy);
 			double trueEnergy = peFunction.computePartialEnergy(nextBestConf);
 			if(lastConfEnergy > nextBestEnergy)
 			{
@@ -317,7 +375,7 @@ public class TestSparseAlgorithms  extends TestCase {
 			}
 			assert(lastConfEnergy <= nextBestEnergy);
 			lastConfEnergy = nextBestEnergy;
-			System.out.println("True energy: "+trueEnergy);
+			//System.out.println("True energy: "+trueEnergy);
 		}
 		
 		GMECFinder sanityCheck = new GMECFinder();

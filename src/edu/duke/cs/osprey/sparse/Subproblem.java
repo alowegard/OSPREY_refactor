@@ -147,7 +147,10 @@ public class Subproblem {
 		}
 	}
 
-
+	public String getSequenceForConf(RCTuple conf)
+	{
+		return residueIndexMap.getSequenceOfRCTuple(conf);
+	}
 	
 	public void addConformationProcessor(ConformationProcessor processor)
 	{

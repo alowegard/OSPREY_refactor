@@ -1,32 +1,29 @@
 package edu.duke.cs.osprey.sparse;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
-
 import edu.duke.cs.osprey.confspace.RCTuple;
 
-public class SubproblemConfEnumerator implements ConformationProcessor {
 
+public class SubproblemSeqEnumerator implements ConformationProcessor {
+	
 	private PartialConformationEnergyFunction energyFunction;
 	private ArrayList<Map<String, PriorityQueue<ScoredAssignment>>> lambdaHeaps; 
 	private ArrayList<PriorityQueue<ScoredAssignment>> templateHeaps;
 	private Subproblem sourceProblem;
-	private SubproblemConfEnumerator leftSubproblem;
-	private SubproblemConfEnumerator rightSubproblem;
+	private SubproblemSeqEnumerator leftSubproblem;
+	private SubproblemSeqEnumerator rightSubproblem;
 	private ChildConfManager childConfs;
 	private static RCTuple emptyConf = new RCTuple();
 	public static boolean debugOutput = true;
 	
-	public SubproblemConfEnumerator (Subproblem subproblem, PartialConformationEnergyFunction eFunc) {
+	public SubproblemSeqEnumerator (Subproblem subproblem, PartialConformationEnergyFunction eFunc) {
 		subproblem.addConformationProcessor(this);
 		addChildProcessors(subproblem, eFunc);
 
@@ -53,34 +50,77 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	private void addChildProcessors (Subproblem subproblem, PartialConformationEnergyFunction eFunc) {
 		if(subproblem.leftSubproblem != null)
 		{
-			leftSubproblem = new SubproblemConfEnumerator(subproblem.leftSubproblem, eFunc);
+			leftSubproblem = new SubproblemSeqEnumerator(subproblem.leftSubproblem, eFunc);
 		}
 		if(subproblem.rightSubproblem != null)
 		{
-			rightSubproblem  = new SubproblemConfEnumerator(subproblem.rightSubproblem, eFunc);
+			rightSubproblem  = new SubproblemSeqEnumerator(subproblem.rightSubproblem, eFunc);
 		}
 	}
-
-	@Override
-	public void processConformation (RCTuple conformation) {
-		RCTuple MAssignment = sourceProblem.extractSubproblemMAssignment(conformation);
-		RCTuple lambdaAssingment = sourceProblem.extractSubproblemLambdaAssignment(conformation);
-		double selfEnergy = energyFunction.computePartialEnergyGivenPriorConformation(MAssignment, lambdaAssingment);
-		double leftEnergy = 0;
-		if(leftSubproblem != null)
-			leftEnergy = leftSubproblem.nextBestEnergy(conformation);
-		double rightEnergy = 0;
-		if(rightSubproblem != null)
-			rightEnergy = rightSubproblem.nextBestEnergy(conformation);
-
-		PriorityQueue<ScoredAssignment> templateHeap = getTemplateHeap(conformation);
-		ScoredAssignment assignment = new ScoredAssignment(conformation, selfEnergy, leftEnergy + rightEnergy, 0);
-		debugPrint("Processing "+conformation+", adding new template conf "+assignment);
-		templateHeap.add(assignment);
-		
+	
+	private void checkHeap(PriorityQueue<ScoredAssignment> templateHeap)
+	{
+		for(ScoredAssignment conf : templateHeap)
+		{
+			if(conf.assignment == null)
+			{
+				debugPrint("Null assignment. Weird...");
+			}
+			if(!sourceProblem.isValidConf(conf.assignment))
+			{
+				debugPrint("Invalid conf in heap.");
+			}
+		}
 	}
 	
+	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
+		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
+		String RCTupleKey = queryAssignment.toString();
+		//TODO: Add a check to see if the queryAssignment belongs to a template heap.
+		if(lambdaHeaps.size() <= lambdaHeapIndex || lambdaHeaps.get(lambdaHeapIndex) == null)
+		{
+			Map<String, PriorityQueue<ScoredAssignment>> heapMap = new HashMap<>();
+			lambdaHeaps.set(lambdaHeapIndex, heapMap);
+		}
+		if(!lambdaHeaps.get(lambdaHeapIndex).containsKey(RCTupleKey))
+			initializeHeap(queryAssignment, RCTupleKey);
+		PriorityQueue<ScoredAssignment> output = lambdaHeaps.get(lambdaHeapIndex).get(RCTupleKey);
+		if(output == null)
+		{
+			System.err.println("Heap not found.");
+		}
+		checkHeap(output);
+		if(!output.isEmpty() && !queryAssignment.consistentWith(output.peek().assignment))
+		{
+			System.err.println("ERROR: Heap does not match query assignment!!");
+		}
+		return output;
+	}
+	
+	private PriorityQueue<ScoredAssignment> getTemplateHeap(RCTuple MULambdaAssignment)
+	{
 
+		int templateHeapIndex = sourceProblem.mapSubproblemConfToIndex(MULambdaAssignment);
+		if(templateHeaps.get(templateHeapIndex) == null)
+		{
+			assert(sourceProblem.isMULambdaAssignment(MULambdaAssignment));
+			templateHeaps.set(templateHeapIndex, new PriorityQueue<>());
+		}
+		return templateHeaps.get(templateHeapIndex);
+	}
+	
+	private void initializeHeap (RCTuple queryAssignment, String RCTupleKey) {
+		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
+		RCTuple MTuple = sourceProblem.extractSubproblemAssignment(queryAssignment);
+
+		Map<String, PriorityQueue<ScoredAssignment>> heapMap = lambdaHeaps.get(lambdaHeapIndex);
+		PriorityQueue<ScoredAssignment> newHeap = new PriorityQueue<ScoredAssignment>();
+		for(ScoredAssignment conf: getTemplateHeap(MTuple))
+		{
+			newHeap.add(conf.copy());
+		}
+		heapMap.put(RCTupleKey, newHeap);
+	}
 
 	public RCTuple nextBestConformation(RCTuple queryAssignment)
 	{
@@ -139,71 +179,73 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		return outputAssignment;
 	}
 	
-
-	
-	private void checkHeap(PriorityQueue<ScoredAssignment> templateHeap)
+	private void debugPrint(Object print)
 	{
-		for(ScoredAssignment conf : templateHeap)
-		{
-			if(conf.assignment == null)
-			{
-				debugPrint("Null assignment. Weird...");
-			}
-			if(!sourceProblem.isValidConf(conf.assignment))
-			{
-				debugPrint("Invalid conf in heap.");
-			}
-		}
-	}
-
-	private PriorityQueue<ScoredAssignment> getHeap (RCTuple queryAssignment) {
-		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
-		String RCTupleKey = queryAssignment.toString();
-		//TODO: Add a check to see if the queryAssignment belongs to a template heap.
-		if(lambdaHeaps.size() <= lambdaHeapIndex || lambdaHeaps.get(lambdaHeapIndex) == null)
-		{
-			Map<String, PriorityQueue<ScoredAssignment>> heapMap = new HashMap<>();
-			lambdaHeaps.set(lambdaHeapIndex, heapMap);
-		}
-		if(!lambdaHeaps.get(lambdaHeapIndex).containsKey(RCTupleKey))
-			initializeHeap(queryAssignment, RCTupleKey);
-		PriorityQueue<ScoredAssignment> output = lambdaHeaps.get(lambdaHeapIndex).get(RCTupleKey);
-		if(output == null)
-		{
-			System.err.println("Heap not found.");
-		}
-		checkHeap(output);
-		if(!output.isEmpty() && !queryAssignment.consistentWith(output.peek().assignment))
-		{
-			System.err.println("ERROR: Heap does not match query assignment!!");
-		}
-		return output;
+		if(debugOutput)
+			System.out.println(print);
 	}
 	
-	private PriorityQueue<ScoredAssignment> getTemplateHeap(RCTuple MULambdaAssignment)
+	private void printHeap(PriorityQueue<ScoredAssignment> heap)
 	{
-
-		int templateHeapIndex = sourceProblem.mapSubproblemConfToIndex(MULambdaAssignment);
-		if(templateHeaps.get(templateHeapIndex) == null)
+		if(!debugOutput)
+			return;
+		debugPrint("Heap "+heap.hashCode()+":");
+		if(heap instanceof LazyHeap)
+			debugPrint("Lazy Heap default Energy: "+((LazyHeap) heap).initialRightEnergy);
+		PriorityQueue<ScoredAssignment> cleanup = new PriorityQueue<>();
+		int maxConfsToPrint = 10;
+		int numPrinted = 0;
+		while(!heap.isEmpty() && numPrinted < maxConfsToPrint)
 		{
-			assert(sourceProblem.isMULambdaAssignment(MULambdaAssignment));
-			templateHeaps.set(templateHeapIndex, new PriorityQueue<>());
+			ScoredAssignment conf = heap.poll();
+			cleanup.add(conf);
+			debugPrint(conf);
+			numPrinted++;
 		}
-		return templateHeaps.get(templateHeapIndex);
+		while(!cleanup.isEmpty())
+			heap.add(cleanup.poll());
+	}
+
+	@Override
+	public boolean recurse () {
+		// TODO Auto-generated method stub
+		return false;
 	}
 	
+	/***
+	 * This function takes a MUlambda assignment and returns the
+	 * corresponding heap used to make the multisequence bound.
+	 * @param queryConf
+	 * @return
+	 */
+	public PriorityQueue<ScoredSeq> getMultiSequenceHeap(RCTuple queryConf)
+	{
+		return null;
+	}
+	
+	/***
+	 * This function takes a complete sequence and returns
+	 * the corresponding partial Sparse K* score.
+	 * @param queryConf
+	 * @return
+	 */
+	public double getPartialKStarScore(RCTuple queryConf)
+	{
+		return -1;
+	}
 
-	private void initializeHeap (RCTuple queryAssignment, String RCTupleKey) {
-		int lambdaHeapIndex = sourceProblem.mapSubproblemConfToIndex(queryAssignment);
-		RCTuple MTuple = sourceProblem.extractSubproblemAssignment(queryAssignment);
-
-		Map<String, PriorityQueue<ScoredAssignment>> heapMap = lambdaHeaps.get(lambdaHeapIndex);
-		PriorityQueue<ScoredAssignment> newHeap = new PriorityQueue<ScoredAssignment>();
-		for(ScoredAssignment conf: getTemplateHeap(MTuple))
+	@Override
+	public void processConformation (RCTuple conformation) {
+		/*
+		 * Conformation processing pseudocode:
+		 * 1. Map conformation to M-sequence lambda heap
+		 * 2. Update M-sequence lambda heap for the right conf, as well as the multisequence lambda heap.
+		 * 3. 
+		 */
+		if(leftSubproblem == null && rightSubproblem == null)
 		{
-			newHeap.add(conf.copy());
+			/* Process partial score per conformation */
 		}
-		heapMap.put(RCTupleKey, newHeap);
 	}
 	
 	public double nextBestEnergy()
@@ -227,7 +269,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		debugPrint("Next best energy is "+heap.peek().score());
 		return bestScore;
 	}
-	
+
 	public boolean hasMoreConformations()
 	{
 		return hasMoreConformations(emptyConf);
@@ -264,39 +306,6 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		ScoredAssignment bestConf = heap.peek();
 		return bestConf.assignment.copy();
 	}
-
-	@Override
-	public boolean recurse () {
-		return false;
-	}
-	
-	private void debugPrint(Object print)
-	{
-		if(debugOutput)
-			System.out.println(print);
-	}
-	
-	private void printHeap(PriorityQueue<ScoredAssignment> heap)
-	{
-		if(!debugOutput)
-			return;
-		debugPrint("Heap "+heap.hashCode()+":");
-		if(heap instanceof LazyHeap)
-			debugPrint("Lazy Heap default Energy: "+((LazyHeap) heap).initialRightEnergy);
-		PriorityQueue<ScoredAssignment> cleanup = new PriorityQueue<>();
-		int maxConfsToPrint = 10;
-		int numPrinted = 0;
-		while(!heap.isEmpty() && numPrinted < maxConfsToPrint)
-		{
-			ScoredAssignment conf = heap.poll();
-			cleanup.add(conf);
-			debugPrint(conf);
-			numPrinted++;
-		}
-		while(!cleanup.isEmpty())
-			heap.add(cleanup.poll());
-	}
-	
 	
 	/*** This class will encapsulate ALL of the crazy logic that 
 	 * goes into maintaining the heaps required for sparse enumeration.
@@ -308,9 +317,9 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	{
 		private Map<String, PriorityQueue<ScoredAssignment>> leftHeapMap = new HashMap<>();;
 		private RightConfManager rightConfs;
-		private SubproblemConfEnumerator leftSubproblem;
+		private SubproblemSeqEnumerator leftSubproblem;
 		
-		public ChildConfManager(SubproblemConfEnumerator leftEnumerator, RightConfManager rightManager)
+		public ChildConfManager(SubproblemSeqEnumerator leftEnumerator, RightConfManager rightManager)
 		{
 			leftSubproblem = leftEnumerator;
 			rightConfs = rightManager;
@@ -358,16 +367,28 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 
 		}
 
-		public double nextBestEnergy (RCTuple queryAssignment) {
-			if(rightConfs != null)
-			{
-				return getLeftHeapMap(queryAssignment).peek().score();
-			}
-			else
-			{
-				return leftSubproblem.nextBestEnergy(queryAssignment);
-			}
+		public double nextBestEnergy()
+		{
+			return nextBestEnergy(emptyConf);
 		}
+		
+		public double nextBestEnergy(RCTuple queryConf)
+		{
+			PriorityQueue<ScoredAssignment> heap = getHeap(queryConf);
+			if(heap.size() < 1)
+			{
+				debugPrint("No confs at "+sourceProblem);
+				getHeap(queryConf);
+			}
+			debugPrint("Getting next best energy for "+queryConf+" at "+sourceProblem);
+			printHeap(heap);
+			ScoredAssignment bestConf = heap.peek();
+			double bestScore = bestConf.score();
+
+			debugPrint("Next best energy is "+heap.peek().score());
+			return bestScore;
+		}
+		
 		
 		private PriorityQueue<ScoredAssignment> getLeftHeapMap(RCTuple queryAssignment)
 		{
@@ -430,11 +451,11 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 	private class RightConfManager 
 	{
 		private Subproblem rightSubproblem;
-		private SubproblemConfEnumerator rightSubproblemEnum;
+		private SubproblemSeqEnumerator rightSubproblemEnum;
 		private Map<String, RightConf> rightConfMap = new HashMap<>();
 		private Map<String, List<ScoredAssignment>> rightConfLists = new HashMap<>();
 
-		public RightConfManager(SubproblemConfEnumerator rightSideEnum, Subproblem rightProblem)
+		public RightConfManager(SubproblemSeqEnumerator rightSideEnum, Subproblem rightProblem)
 		{
 			rightSubproblemEnum = rightSideEnum;
 			rightSubproblem = rightProblem;
@@ -499,7 +520,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		private RCTuple queryAssignment;
 		private int confListIndex = 0;
 		private List<ScoredAssignment> confList;
-		private SubproblemConfEnumerator rightSubproblem;
+		private SubproblemSeqEnumerator rightSubproblem;
 		
 		public RightConf(RCTuple conf, List<ScoredAssignment> rightConfs){
 			queryAssignment = conf;
@@ -507,7 +528,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 			checkList(confList);
 		}
 
-		public void updateConf (SubproblemConfEnumerator rightSubproblem) {
+		public void updateConf (SubproblemSeqEnumerator rightSubproblem) {
 			RCTuple rightMAssignment = rightSubproblem.sourceProblem.extractSubproblemMAssignment(queryAssignment);
 			if(!hasMoreConformations())
 			{
@@ -578,15 +599,32 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 	}
 	
+	private class ScoredSeq implements Comparable<ScoredSeq>
+	{
+		
+		private double cumulativeScore = 0;
+		private double selfScore = 0;
+		private double leftScore = 0;
+		private double rightScore = 0;
+		private boolean debugOutput = false;
+
+		@Override
+		public int compareTo (ScoredSeq arg0) 
+		{
+			return Double.compare(cumulativeScore, arg0.cumulativeScore);
+		}
+		
+	}
+	
 	private class LazyHeap extends PriorityQueue<ScoredAssignment>
 	{
 		private boolean dirty;
 		private ScoredAssignment cleanAssignment = null;
-		private SubproblemConfEnumerator leftSubproblem;
+		private SubproblemSeqEnumerator leftSubproblem;
 		private RCTuple queryAssignment;
 		private double initialRightEnergy = 0;
 		
-		public LazyHeap(RCTuple queryConf, SubproblemConfEnumerator leftChild, double defaultEnergy)
+		public LazyHeap(RCTuple queryConf, SubproblemSeqEnumerator leftChild, double defaultEnergy)
 		{
 			if(defaultEnergy > 0)
 			{
@@ -645,6 +683,7 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		
 	}
 	
+	
 
 	public RCTuple nextBestConformation () {
 		return nextBestConformation(emptyConf);
@@ -663,182 +702,5 @@ public class SubproblemConfEnumerator implements ConformationProcessor {
 		}
 		
 	}
-}
-
-
-
-
-/* Old code follows.
-public void bTrackBestConfRemoveEarlyNew(RotTypeMap bestPosAARot[], int[] bestState)
-{
-    boolean reinsert = false;
-    PriorityQueue<Conf> outHeap = getHeap(bestPosAARot, bestState, ""+this.hashCode());
-    
-    
-    if(printHeap)
-        outputInitialDebugData(bestPosAARot, outHeap);
-    
-    if(outHeap.size() > 1 && lambda.size() < 1)
-        debugPrint("Impossibiruuuu");
-    debugPrint("Begin. Polling heap...");
-    Conf nextState = outHeap.poll();
-    // Add lambda to the solution 
-    nextState.fillRotTypeMap(bestPosAARot);
-    RotTypeMap[] bestPosAARotOld = Arrays.copyOf(bestPosAARot, bestPosAARot.length);
-    
-    double curBest = nextState.energy;
-    debugPrint("Next state is "+nextState+", energy "+nextState.energy);
-
-    if(rightChild != null)
-    {
-    	debugPrint("right child is not null, performing left and right operations...");
-        TreeEdge leftEdge = leftChild.getCofEdge();
-        int[] leftMLambda = nextState.conformation; 
-        int[] leftM = getMstateForEdgeCurState(leftMLambda, leftEdge);
-        TreeEdge rightEdge = rightChild.getCofEdge();
-        
-        debugPrint("Getting right solutoins for "+RTMToString(bestPosAARot));
-        List<RightConf> rightConfs = getRightSolutions(bestPosAARot);
-        if(rightConfs.size() < 1)
-        {
-        	debugPrint("Generating new list, list is empty...");
-            int[] rightMLambda = nextState.conformation; 
-            int[] rightM = getMstateForEdgeCurState(rightMLambda, rightEdge);
-            getNewRightconf(bestPosAARotOld, rightEdge, rightConfs, rightM);
-        }
-        debugPrint("Getting secondary heap from "+leftEdge.L+leftEdge.lambda+"...");
-        LazyHeap<Conf> secondaryHeap = getSecondaryHeap(bestPosAARotOld, leftM);
-        if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-            debugPrint("IMPOSSIBIRU!?!?!!");
-        if((secondaryHeap.dirty || secondaryHeap.size() < 1) && leftEdge.moreConformations(bestPosAARotOld, leftM)) 
-        {
-        	debugPrint("Populating heap with new conformation...");
-            // Acquire new left conformation for the heap 
-            RotTypeMap[] bestPosAARotLeft = Arrays.copyOf(bestPosAARotOld, bestPosAARot.length);
-            
-            double newLeftEnergy = leftEdge.peekEnergy(bestPosAARotLeft, leftM);
-            leftEdge.bTrackBestConfRemoveEarlyNew(bestPosAARotLeft, leftM);
-            Conf newLeftConf = new Conf(bestPosAARotLeft, newLeftEnergy);
-            newLeftConf.updateLeftEnergy(rightConfs.get(0).energy);
-            secondaryHeap.cleanNode = newLeftConf;
-            secondaryHeap.add(newLeftConf);
-            secondaryHeap.dirty = false;
-            if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-                debugPrint("IMPOSSIBIRU!?!?!!");
-        }
-        
-        // Maintain cleanliness 
-		PriorityQueue<Conf> copy = new PriorityQueue<Conf>();
-
-		for(Conf c : secondaryHeap)
-		{
-		    copy.add(c);
-		}
-
-		while(!copy.isEmpty())
-		{
-		    Conf c = copy.poll();
-		    debugPrint(c+"$"+c.energy+", left "+c.leftEnergy+", self "+c.selfEnergy+", right "+c.rightEnergy);
-		}
-        Conf leftConf = secondaryHeap.poll();
-        debugPrint("Polled left conformation from secondary heap: "+leftConf+", "+leftConf.energy);
-
-		PriorityQueue<Conf> copy2 = new PriorityQueue<Conf>();
-
-		for(Conf c : secondaryHeap)
-		{
-		    copy2.add(c);
-		}
-
-		while(!copy2.isEmpty())
-		{
-		    Conf c = copy2.poll();
-		    debugPrint(c+"$"+c.energy+", left "+c.leftEnergy+", self "+c.selfEnergy+", right "+c.rightEnergy);
-		}
-        leftConf.fillConf(bestPosAARot);
-        
-        if(leftConf == secondaryHeap.cleanNode)
-            secondaryHeap.dirty = true;
-        int index = getRightOffset(leftConf.toString());
-        debugPrint("Right offset index is "+index);
-
-        int[] rightMLambda = nextState.conformation; 
-        int[] rightM = getMstateForEdgeCurState(rightMLambda, rightEdge);
-        while(rightConfs.size() <= index + 1 && rightEdge.moreConformations(bestPosAARotOld, rightM))
-        {
-            debugPrint("Getting extra conformation for next run...");
-            getNewRightconf(bestPosAARotOld, rightEdge, rightConfs, rightM);
-        }
-                    
-        RightConf rightConf = rightConfs.get(index);    
-        rightConf.fillRotTypeMap(bestPosAARot);        
-        debugPrint("Returned right conformation is "+rightConf+", energy "+rightConf.energy);
-        
-        if(index + 1 < rightConfs.size() || rightEdge.moreConformations(bestPosAARotOld, rightM))
-        {
-            RightConf nextRightConf = rightConfs.get(index + 1);
-            leftConf.updateLeftEnergy(nextRightConf.energy);
-            rightSolutionOffset.put(leftConf.toString(), index + 1);
-            debugPrint("Reinsert "+leftConf+" with new energy "+leftConf.energy
-            		+" into secondary heap, right conf is "+nextRightConf+", energy "+nextRightConf.energy);
-            secondaryHeap.add(leftConf);
-            reinsert = true;
-        }
-        
-        if((secondaryHeap.dirty || secondaryHeap.size() < 1) && leftEdge.moreConformations(bestPosAARotOld, leftM)) 
-        {
-            // Acquire new left conformation for the heap 
-            RotTypeMap[] bestPosAARotLeft = Arrays.copyOf(bestPosAARotOld, bestPosAARot.length);
-            
-            double newLeftEnergy = leftEdge.peekEnergy(bestPosAARotLeft, leftM);
-            leftEdge.bTrackBestConfRemoveEarlyNew(bestPosAARotLeft, leftM);
-            Conf newLeftConf = new Conf(bestPosAARotLeft, newLeftEnergy);
-            newLeftConf.updateLeftEnergy(rightConfs.get(0).energy);
-            secondaryHeap.cleanNode = newLeftConf;
-            secondaryHeap.add(newLeftConf);
-            secondaryHeap.dirty = false;
-            if(leftChild.getCofEdge().lambda.size() < 1 && secondaryHeap.size() > 1)
-                debugPrint("IMPOSSIBIRU!?!?!!");
-        }
-
-        if(secondaryHeap.size() > 0)
-        {
-            nextState.updateLeftEnergy(secondaryHeap.peek().energy);
-            reinsert = true;
-        }
-        else
-            reinsert = false;
-        
-    }
-
-    else if(leftChild != null)
-    {
-    	debugPrint("Only one child. Recursing...");
-        TreeEdge leftEdge = leftChild.getCofEdge();
-        int[] leftMLambda = nextState.conformation; 
-        int[] leftM = getMstateForEdgeCurState(leftMLambda, leftEdge);
-        if(leftM == null)
-            leftM = leftMLambda;
-        leftEdge.bTrackBestConfRemoveEarlyNew(bestPosAARot, leftM);        
-        nextState.updateLeftEnergy(leftEdge.peekEnergy(bestPosAARot, leftM));
-        debugPrint(nextState+" has new energy "+nextState.energy);
-        reinsert = leftEdge.moreConformations(bestPosAARot, leftM);
-    }
-    if(reinsert)
-        outHeap.add(nextState);
-    
-    checkHeap(outHeap);
-    if(outHeap.size() > 1)
-    {
-        double curNewBest = outHeap.peek().energy;
-        if(curNewBest < curBest)
-        {
-            System.err.println("Out of order. Terminating...");
-            //System.exit(-1);
-        }
-    }
-    if(printHeap)
-        printEndDebugInfo(bestPosAARot, outHeap);
 
 }
-*/
