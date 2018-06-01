@@ -1,43 +1,33 @@
 /*
-This file is part of OSPREY.
-
-OSPREY Protein Redesign Software Version 2.1 beta
-Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
-
-OSPREY is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as 
-published by the Free Software Foundation, either version 3 of 
-the License, or (at your option) any later version.
-
-OSPREY is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, see:
-      <http://www.gnu.org/licenses/>.
-
-There are additional restrictions imposed on the use and distribution
-of this open-source code, including: (A) this header must be included
-in any modification or extension of the code; (B) you are required to
-cite our papers in any publications that use this code. The citation
-for the various different modules of our software, together with a
-complete list of requirements and restrictions are found in the
-document license.pdf enclosed with this distribution.
-
-Contact Info:
-		Bruce Donald
-		Duke University
-		Department of Computer Science
-		Levine Science Research Center (LSRC)
-		Durham
-		NC 27708-0129 
-		USA
-		e-mail:   www.cs.duke.edu/brd/
-
-<signature of Bruce Donald>, Mar 1, 2012
-Bruce Donald, Professor of Computer Science
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
  */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +44,7 @@ Bruce Donald, Professor of Computer Science
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * Written by Ivelin Georgiev (2004-2009)
- * 
+ *
  */
 package edu.duke.cs.osprey.tools;
 
@@ -66,18 +56,23 @@ import java.math.*;
  * Manages the computation of exp(x) for large values of x, using BigDecimal;
  * 		For large values of x, the standard Math.exp(x) cannot be used, since it only has double precision;
  * Implements pow() for integer powers of a BigDecimal number and an approximation to the natural logarithm of a BigDecimal number
- * 
+ *
  */
 @SuppressWarnings("serial")
 public class ExpFunction implements Serializable {
 
 	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
 
-	final int maxPrecision = 8; //the number of decimal digits to which the BigDecimal numbers must be accurate
+	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
 	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 	//constructor
-	public ExpFunction() {
 
+	public ExpFunction() {
+		this.maxPrecision = 8;
+	}
+
+	public ExpFunction(MathContext mathContext) {
+		this.maxPrecision = mathContext.getPrecision();
 	}
 
 	//Computes exp(x) using BigDecimal arithmetic for large x or the standard Math.exp() function for small x;
@@ -118,8 +113,7 @@ public class ExpFunction implements Serializable {
 	public BigDecimal log(BigDecimal num){
 
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..");
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		BigDecimal sum = new BigDecimal("0.0");
@@ -150,21 +144,13 @@ public class ExpFunction implements Serializable {
 
 		return sum;
 	}
-	
-	public BigDecimal log10ToBigDecimal(BigDecimal num) {
-		BigDecimal loge = log(num);
-		BigDecimal denom = log(new BigDecimal("10"));
-		BigDecimal result = loge.divide(denom, num.scale(), BigDecimal.ROUND_HALF_EVEN);
-		return result;
-	}
-	
+
 	// Returns the natural logarithm of a big decimal
 	public double logToDouble(BigDecimal num){
 		double eDoub = 2.71828182845904523536;
 		double log10ofE = Math.log10(eDoub);
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..");
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		int powerOfTen = num.round(mc).scale() * -1;
@@ -176,12 +162,11 @@ public class ExpFunction implements Serializable {
 		return returnVal;
 
 	}
-	
+
 	// Returns the logarithm in base 10 of a BigDecimal.
 	public double log10(BigDecimal num){
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..: "+num.toString());
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		int powerOfTen = num.round(mc).scale() * -1;

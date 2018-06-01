@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import java.io.File;
@@ -8,12 +40,14 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -21,401 +55,396 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSConfigFileParser extends ConfigFileParser implements Serializable {
 
-	private static final long serialVersionUID = 3653519769830569960L;
+    private static final long serialVersionUID = 3653519769830569960L;
 
 
-	public KSConfigFileParser(String[] args) {
-		super(args);
-	}
-	
-	
-	public KSConfigFileParser() {
-		super();
-	}
+    public KSConfigFileParser(ConfigFileParser cfp) {
+        super(cfp);
+    }
 
 
-	public ArrayList<ArrayList<String>> getHighOrderTuplesByStrand(int strand) {
+    public KSConfigFileParser() {
+        super();
+    }
 
-		ArrayList<ArrayList<String>> ans = getHighOrderTuplesByPDBResNum();
 
-		switch(strand) {
+    public ArrayList<ArrayList<String>> getHighOrderTuplesByStrand(int strand) {
 
-		case 2:
-			return ans;
+        ArrayList<ArrayList<String>> ans = getHighOrderTuplesByPDBResNum();
 
-		case 1:
-			return filterHOTListByStrand(getStrandLimits(1), ans);
+        switch(strand) {
 
-		case 0:
-			return filterHOTListByStrand(getStrandLimits(0), ans);
+            case 2:
+                return ans;
 
-		default:
-			throw new RuntimeException("ERROR: invalid strand");
-		}
-	}
+            case 1:
+                return filterHOTListByStrand(getStrandLimits(1), ans);
 
+            case 0:
+                return filterHOTListByStrand(getStrandLimits(0), ans);
 
-	public ArrayList<ArrayList<String>> getHighOrderTuplesByPDBResNum() {
-		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+            default:
+                throw new RuntimeException("ERROR: invalid strand");
+        }
+    }
 
-		HashSet<String> flexRes = new HashSet<>(getFlexRes());
-		HashSet<String> resInHot = new HashSet<>();
 
-		ArrayList<String> hotRecords = params.searchParams("kStarPFuncHot_");
+    public ArrayList<ArrayList<String>> getHighOrderTuplesByPDBResNum() {
+        ArrayList<ArrayList<String>> ans = new ArrayList<>();
 
-		for(String hotRecord : hotRecords) {
-			ArrayList<String> hotRes = new ArrayList<>();
+        HashSet<String> flexRes = new HashSet<>(getFlexRes());
+        HashSet<String> resInHot = new HashSet<>();
 
-			String val = params.getValue(hotRecord);
-			StringTokenizer tokenizer = new StringTokenizer(val);
+        ArrayList<String> hotRecords = params.searchParams("kStarPFuncHot_");
 
-			while(tokenizer.hasMoreTokens()) {
-				String token = tokenizer.nextToken();
+        for(String hotRecord : hotRecords) {
+            ArrayList<String> hotRes = new ArrayList<>();
 
-				if(!flexRes.contains(token))
-					throw new RuntimeException("ERROR: residue " + token + " in line " + hotRecord + " must be flexible.");
+            String val = params.getValue(hotRecord);
+            StringTokenizer tokenizer = new StringTokenizer(val);
 
-				if(resInHot.contains(token))
-					throw new RuntimeException("ERROR: residue " + token + " cannot appear in more than one HOT.");
+            while(tokenizer.hasMoreTokens()) {
+                String token = tokenizer.nextToken();
 
-				hotRes.add(token);
-				resInHot.add(token);
-			}
+                if(!flexRes.contains(token))
+                    throw new RuntimeException("ERROR: residue " + token + " in line " + hotRecord + " must be flexible.");
 
-			if(hotRes.size() < 3)
-				throw new RuntimeException("ERROR: in line " + hotRecord + " the number of residues is < 3.");
+                if(resInHot.contains(token))
+                    throw new RuntimeException("ERROR: residue " + token + " cannot appear in more than one HOT.");
 
-			hotRes.trimToSize();
-			ans.add(hotRes);
-		}
+                hotRes.add(token);
+                resInHot.add(token);
+            }
 
-		ans.trimToSize();
-		return ans;
-	}
+            if(hotRes.size() < 3)
+                throw new RuntimeException("ERROR: in line " + hotRecord + " the number of residues is < 3.");
 
+            hotRes.trimToSize();
+            ans.add(hotRes);
+        }
 
-	protected ArrayList<ArrayList<String>> filterHOTListByStrand( ResidueTermini strand, ArrayList<ArrayList<String>> list ) {
-		@SuppressWarnings("unchecked")
-		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
+        ans.trimToSize();
+        return ans;
+    }
 
-		for( Iterator<ArrayList<String>> iterator = ans.iterator(); iterator.hasNext(); ) {
 
-			ArrayList<String> hot = iterator.next();
+    protected ArrayList<ArrayList<String>> filterHOTListByStrand( ResidueTermini strand, ArrayList<ArrayList<String>> list ) {
+        @SuppressWarnings("unchecked")
+        ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
 
-			for( Iterator<String> iterator2 = hot.iterator(); iterator2.hasNext(); ) {
-				String pdbResNum = iterator2.next();
+        for( Iterator<ArrayList<String>> iterator = ans.iterator(); iterator.hasNext(); ) {
 
-				if(!strand.contains(Integer.parseInt(pdbResNum)))
-					iterator2.remove();
-			}
+            ArrayList<String> hot = iterator.next();
 
-			if(hot.size() < 3)
-				iterator.remove();
-		}
+            for( Iterator<String> iterator2 = hot.iterator(); iterator2.hasNext(); ) {
+                String pdbResNum = iterator2.next();
 
-		return ans;
-	}
+                if(!strand.contains(pdbResNum))
+                    iterator2.remove();
+            }
 
+            if(hot.size() < 3)
+                iterator.remove();
+        }
 
-	protected DEEPerSettings setupDEEPer(int strand) {
-		//Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
-		//String runName = params.getValue("runName");
+        return ans;
+    }
 
-		ArrayList<String> flexRes = strand == 2 ? getFlexRes() : getFlexResByStrand(strand);
-		
-		DEEPerSettings dset = new DEEPerSettings(
-				params.getBool("doPerturbations"),
-				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
-				params.getBool("selectPerturbations"),
-				params.getValue("startingPerturbationFile"),
-				params.getBool("onlyStartingPerturbations"),
-				params.getDouble("maxShearParam"),
-				params.getDouble("maxBackrubParam"),
-				params.getBool("selectLCAs"),
-				flexRes,
-				params.getValue("PDBNAME"),
-				params.getBool("DORAMACHECK")
-				);
 
-		// remove residues not in this strand
-		ResidueTermini limits = getStrandLimits(strand);
-		dset.loadPertFile(limits);//load the PertSet from its file
-		return dset;
-	}
+    protected DEEPerSettings setupDEEPer(int strand) {
+        //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
+        //String runName = params.getValue("runName");
 
+        ArrayList<String> flexRes = strand == 2 ? getFlexRes() : getFlexResByStrand(strand);
 
-	private ArrayList<String[]> freeBBZoneTermini(ResidueTermini limits){
-		//Read the termini of the BBFreeBlocks, if any
-		ArrayList<String[]> ans = new ArrayList<>();
+        DEEPerSettings dset = new DEEPerSettings(
+                params.getBool("doPerturbations"),
+                "STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
+                params.getBool("selectPerturbations"),
+                params.getValue("startingPerturbationFile"),
+                params.getBool("onlyStartingPerturbations"),
+                params.getDouble("maxShearParam"),
+                params.getDouble("maxBackrubParam"),
+                params.getBool("selectLCAs"),
+                flexRes,
+                params.getValue("PDBNAME"),
+                params.getBool("DORAMACHECK"),
+                EnvironmentVars.resTemplates
+        );
 
-		for(String rt : params.searchParams("BBFREEBLOCK")){
-			//So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
-			//lexical ordering for blocks is OK
-			String strandLimitsString = params.getValue(rt);
+        // remove residues not in this strand
+        ResidueTermini limits = getStrandLimits(strand);
+        dset.loadPertFile(limits);//load the PertSet from its file
+        return dset;
+    }
 
-			String[] termini = 
-				{ StringParsing.getToken(strandLimitsString, 1),
-						StringParsing.getToken(strandLimitsString, 2) };
 
-			int begin = Integer.parseInt(termini[0]);
-			int end = Integer.parseInt(termini[1]);
+    private ArrayList<String[]> freeBBZoneTermini(ResidueTermini limits){
+        //Read the termini of the BBFreeBlocks, if any
+        ArrayList<String[]> ans = new ArrayList<>();
 
-			if(limits == null || (limits.contains(begin) && limits.contains(end)))
-				ans.add(termini);
-		}
+        for(String rt : params.searchParams("BBFREEBLOCK")){
+            //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            //lexical ordering for blocks is OK
+            String strandLimitsString = params.getValue(rt);
 
-		return ans;
-	}
+            String[] termini =
+                    { StringParsing.getToken(strandLimitsString, 1),
+                            StringParsing.getToken(strandLimitsString, 2) };
 
+            if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
+                ans.add(termini);
+        }
 
-	private ArrayList<String[]> moveableStrandTermini(ResidueTermini limits){
-		//Read the strands that are going to translate and rotate
-		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
-		ArrayList<String[]> ans = new ArrayList<>();
-
-		for(String rt : params.searchParams("STRANDROTTRANS")){
-			if(params.getBool(rt)){
-				//So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
-				//OK to go through these params in lexical ordering
-				String strandNum = rt.substring(14);
-				String strandLimitsString = params.getValue("STRAND"+strandNum);
+        return ans;
+    }
 
-				String[] termini = 
-					{ StringParsing.getToken(strandLimitsString, 1),
-							StringParsing.getToken(strandLimitsString, 2) };
 
-				int begin = Integer.parseInt(termini[0]);
-				int end = Integer.parseInt(termini[1]);
+    private ArrayList<String[]> moveableStrandTermini(ResidueTermini limits){
+        //Read the strands that are going to translate and rotate
+        //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+        ArrayList<String[]> ans = new ArrayList<>();
 
-				if(limits == null || (limits.contains(begin) && limits.contains(end)))
-					ans.add(termini);
-			}
-		}
+        for(String rt : params.searchParams("STRANDROTTRANS")){
+            if(params.getBool(rt)){
+                //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                //OK to go through these params in lexical ordering
+                String strandNum = rt.substring(14);
+                String strandLimitsString = params.getValue("STRAND"+strandNum);
 
-		return ans;
-	}
+                String[] termini =
+                        { StringParsing.getToken(strandLimitsString, 1),
+                                StringParsing.getToken(strandLimitsString, 2) };
 
+                if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
+                    ans.add(termini);
+            }
+        }
 
-	protected ResidueTermini getStrandLimits( int strand ) {
+        return ans;
+    }
 
-		if( strand == 2 ) return null;
 
-		String strandLimits = params.getValue( "STRAND"+strand );
+    protected ResidueTermini getStrandLimits( int strand ) {
 
-		StringTokenizer tokenizer = 
-				new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
-		for( int it = 0; it < strand; ++it ) tokenizer.nextToken(); 
+        if( strand == 2 ) return null;
 
-		tokenizer = new StringTokenizer( strandLimits );
+        String strandLimits = params.getValue( "STRAND"+strand );
 
-		ArrayList<String> strLimits = new ArrayList<>();
-		while( tokenizer.hasMoreTokens() ){
-			strLimits.add( tokenizer.nextToken() );
-		}
+        StringTokenizer tokenizer =
+                new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
+        for( int it = 0; it < strand; ++it ) tokenizer.nextToken();
 
-		return new ResidueTermini( strand, Integer.valueOf(strLimits.get(0)), Integer.valueOf(strLimits.get(1)) );
+        tokenizer = new StringTokenizer( strandLimits );
 
-	}
+        ArrayList<String> strLimits = new ArrayList<>();
+        while( tokenizer.hasMoreTokens() ){
+            strLimits.add( tokenizer.nextToken() );
+        }
 
+        return new ResidueTermini( strand, strLimits.get(0), strLimits.get(1) );
 
-	public ArrayList<String> getWTSequence() {
+    }
 
-		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"));
-		ArrayList<String> flexibleRes = getFlexRes();
-		int numPos = flexibleRes.size();
-		ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);
 
-		for(int pos=0; pos<numPos; pos++) {
-			Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
-			String wtName = res.template.name;
-			wt.set(pos, wtName);
-		}
+    public ArrayList<String> getWTSequence() {
 
-		wt.trimToSize();
-		return wt;
-	}
+        Molecule m = new Strand.Builder(PDBIO.readFile(params.getFile("PDBNAME"))).build().mol;
+        ArrayList<String> flexibleRes = getFlexRes();
+        int numPos = flexibleRes.size();
+        ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);
 
+        for(int pos=0; pos<numPos; pos++) {
+            Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
+            String wtName = res.template.name;
+            wt.set(pos, wtName);
+        }
 
-	public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
+        wt.trimToSize();
+        return wt;
+    }
 
-		String tmp = getParams().getValue("kStarOutputDir");
-		if(tmp.equalsIgnoreCase("runName")) tmp = getParams().getValue("RUNNAME");
 
-		String ematDir = tmp + File.separator + getParams().getValue("kStarEmatDir");
-		ObjectIO.makeDir(ematDir, getParams().getBool("kStarDeleteEmatDir", false));
-		String name = ematDir + File.separator + getParams().getValue("RUNNAME");
+    public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
 
-		String suffix = "Strand"+strand;
+        String tmp = params.getValue("kStarOutputDir");
+        if(tmp.equalsIgnoreCase("runName")) tmp = params.getValue("RUNNAME");
 
-		ArrayList<String[]> moveableStrands = strandSeqs.getMoveableStrandTermini();
-		ArrayList<String[]> freeBBZones = strandSeqs.getFreeBBZoneTermini();
-		DEEPerSettings dset = strandSeqs.getDEEPerSettings();
+        String ematDir = tmp + File.separator + params.getValue("kStarEmatDir");
+        ObjectIO.makeDir(ematDir, params.getBool("kStarDeleteEmatDir", false));
+        String name = ematDir + File.separator + params.getValue("RUNNAME");
 
-		System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
+        String suffix = "Strand"+strand;
 
-		return new SearchProblem( name+"."+suffix, getParams().getValue("PDBNAME"), 
-				strandSeqs.getFlexRes(), 
-				strandSeqs.getAllowedAAs(),
-				getParams().getBool("AddWT"), 
-				getParams().getBool("doMinimize", false), 
-				getParams().getBool("useEpic"),
-				new EPICSettings(params),
-				getParams().getBool("UseTupExp", false),
-				new LUTESettings(params),
-				dset, moveableStrands, freeBBZones,
-				getParams().getBool("useEllipses", false),
-				getParams().getBool("useERef", false),
-				getParams().getBool("AddResEntropy", false),
-				getParams().getBool("addWTRots", false),
-				getStrandLimits(strand),
-				getParams().getBool("useVoxelG", false),
-                                new ArrayList<>()
-				);
-	}
+        ArrayList<String[]> moveableStrands = strandSeqs.getMoveableStrandTermini();
+        ArrayList<String[]> freeBBZones = strandSeqs.getFreeBBZoneTermini();
+        DEEPerSettings dset = strandSeqs.getDEEPerSettings();
 
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
 
-	ArrayList<String> getFlexResByStrand( int strand ) {
+        return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"),
+                strandSeqs.getFlexRes(),
+                strandSeqs.getAllowedAAs(),
+                params.getBool("AddWT"),
+                params.getBool("doMinimize", false),
+                params.getBool("useEpic"),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                new LUTESettings(params),
+                dset, moveableStrands, freeBBZones,
+                params.getBool("useEllipses", false),
+                params.getBool("useERef", false),
+                params.getBool("AddResEntropy", false),
+                params.getBool("addWTRots", false),
+                getStrandLimits(strand),
+                params.getBool("useVoxelG", false),
+                new ArrayList<>()
+        );
+    }
 
-		if( strand != 2 && strand != 0 && strand != 1 )
-			throw new RuntimeException("ERROR: specified strand " + strand + " is invalid");
 
-		ArrayList<String> flexResList = new ArrayList<>();
+    ArrayList<String> getFlexResByStrand( int strand ) {
 
-		String resListString = params.getValue("strandMut"+strand);
-		StringTokenizer tokenizer = new StringTokenizer(resListString);
+        if( strand != 2 && strand != 0 && strand != 1 )
+            throw new RuntimeException("ERROR: specified strand " + strand + " is invalid");
 
-		while(tokenizer.hasMoreTokens()){
-			flexResList.add( tokenizer.nextToken() );
-		}
+        ArrayList<String> flexResList = new ArrayList<>();
 
-		return flexResList;
-	}
+        String resListString = params.getValue("strandMut"+strand);
+        StringTokenizer tokenizer = new StringTokenizer(resListString);
 
+        while(tokenizer.hasMoreTokens()){
+            flexResList.add( tokenizer.nextToken() );
+        }
 
-	public void verifyStrandsMutuallyExclusive() {
-		// make sure that strands are mutually exclusive. assuming only two strands for now...
-		ResidueTermini s0 = getStrandLimits(0);
-		ResidueTermini s1 = getStrandLimits(1);
+        return flexResList;
+    }
 
-		// there is a C common to both integer sets
-		// x1 <= C <= x2
-		// y1 <= C <= y2
-		// x1 <= y2 && y1 <= x2
-		if(s0.lBound <= s1.uBound && s1.lBound <= s0.uBound)
-			throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
-	}
 
+    public void verifyStrandsMutuallyExclusive() {
+        // make sure that strands are mutually exclusive. assuming only two strands for now...
+        ResidueTermini s0 = getStrandLimits(0);
+        ResidueTermini s1 = getStrandLimits(1);
 
-	public KSAllowedSeqs getAllowedSequences(int strand, KSAllowedSeqs complexSeqs) {
+        // there is a C common to both integer sets
+        // x1 <= C <= x2
+        // y1 <= C <= y2
+        // x1 <= y2 && y1 <= x2
+        if(s0.lBound.compareTo(s1.uBound)<=0 && s1.lBound.compareTo(s0.uBound)<=0)
+            throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
+    }
 
-		ResidueTermini limits = getStrandLimits(strand);
 
-		if( complexSeqs == null ) {
-			// this is only true when we have not calculated the sequences for the complex
+    public KSAllowedSeqs getAllowedSequences(int strand, KSAllowedSeqs complexSeqs) {
 
-			ArrayList<String> flexRes = getFlexRes();
-			ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
+        ResidueTermini limits = getStrandLimits(strand);
 
-			if(flexRes.size() != allowedAAs.size()){
-				throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
-						+ "and allowed AA type parameters!");
-			}
+        if( complexSeqs == null ) {
+            // this is only true when we have not calculated the sequences for the complex
 
-			int numMutations = params.getInt("NUMMUTATIONS", 1);
-                        boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
+            ArrayList<String> flexRes = getFlexRes();
+            ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
 
-			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand), 
-					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
-					allowedAAs, getWTSequence(), getParams().getBool("addWT"), 
-                                        numMutations, allowLessMut);
+            if(flexRes.size() != allowedAAs.size()){
+                throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+                        + "and allowed AA type parameters!");
+            }
 
-			if( !complexSeqs.containsWTSeq() ) {
-				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " + 
-						KSAbstract.list1D2String(complexSeqs.getWTSeq(), " ") + "\n");
-			}
+            int numMutations = params.getInt("NUMMUTATIONS", 1);
+            boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
 
-			// if this condition is true, then only the wild type sequence is returned
-			if(numMutations > 0 && complexSeqs.getNumSeqs() == 1 && complexSeqs.containsWTSeq())
-				throw new RuntimeException("ERROR: cannot generate any sequences "
-						+ "for NUMMUTATIONS=" + numMutations + " mutation(s). "
-						+ "Change the value of NUMMUTATIONS parameter.");
-		}
+            complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand),
+                    freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes,
+                    allowedAAs, getWTSequence(), params.getBool("addWT"),
+                    numMutations, allowLessMut);
 
-		if(strand == 2)
-			return complexSeqs;
+            if( !complexSeqs.containsWTSeq() ) {
+                System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " +
+                        KSAbstract.list1D2String(complexSeqs.getWTSeq(), " ") + "\n");
+            }
 
-		// get index values of strand limits in flexRes
-		@SuppressWarnings("unchecked")
-		ArrayList<String> flexRes = (ArrayList<String>)ObjectIO.deepCopy(complexSeqs.getFlexRes());
-		@SuppressWarnings("unchecked")
-		ArrayList<ArrayList<String>> allowedAAs = (ArrayList<ArrayList<String>>)ObjectIO.deepCopy(complexSeqs.getAllowedAAs());
-		int lb = -1, ub = -1;
-		ResidueTermini compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
-		lb = flexRes.indexOf( String.valueOf(compressedLimits.lBound) );
-		ub = flexRes.indexOf( String.valueOf(compressedLimits.uBound) ) + 1;
+            // if this condition is true, then only the wild type sequence is returned
+            if(numMutations > 0 && complexSeqs.getNumSeqs() == 1 && complexSeqs.containsWTSeq())
+                throw new RuntimeException("ERROR: cannot generate any sequences "
+                        + "for NUMMUTATIONS=" + numMutations + " mutation(s). "
+                        + "Change the value of NUMMUTATIONS parameter.");
+        }
 
-		// filter allowedSeqs for protein and ligand strands
-		filterResiduesByStrand( strand, flexRes, allowedAAs );
+        if(strand == 2)
+            return complexSeqs;
 
-		KSAllowedSeqs strandSeqs = new KSAllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand), 
-				freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, complexSeqs, allowedAAs, lb, ub);
+        // get index values of strand limits in flexRes
+        @SuppressWarnings("unchecked")
+        ArrayList<String> flexRes = (ArrayList<String>)ObjectIO.deepCopy(complexSeqs.getFlexRes());
+        @SuppressWarnings("unchecked")
+        ArrayList<ArrayList<String>> allowedAAs = (ArrayList<ArrayList<String>>)ObjectIO.deepCopy(complexSeqs.getAllowedAAs());
+        int lb = -1, ub = -1;
+        ResidueTermini compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
+        lb = flexRes.indexOf( String.valueOf(compressedLimits.lBound) );
+        ub = flexRes.indexOf( String.valueOf(compressedLimits.uBound) ) + 1;
 
-		return strandSeqs;
-	}
+        // filter allowedSeqs for protein and ligand strands
+        filterResiduesByStrand( strand, flexRes, allowedAAs );
 
+        KSAllowedSeqs strandSeqs = new KSAllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand),
+                freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, complexSeqs, allowedAAs, lb, ub);
 
-	ResidueTermini getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
+        return strandSeqs;
+    }
 
-		ResidueTermini strandLimits = getStrandLimits(strand);
-		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
-		@SuppressWarnings("unchecked")
-		ArrayList<String> flexRes2 = (ArrayList<String>)ObjectIO.deepCopy(flexRes);
+    ResidueTermini getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
 
-		for( int it = 0; it < flexRes2.size(); ) {
-			if( !strandLimits.contains( Integer.parseInt(flexRes2.get(it)) ) ) {
+        ResidueTermini strandLimits = getStrandLimits(strand);
+        ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
-				String removed = flexRes2.remove(it);
+        @SuppressWarnings("unchecked")
+        ArrayList<String> flexRes2 = (ArrayList<String>)ObjectIO.deepCopy(flexRes);
 
-				if( strandResNums.contains( removed ) )
-					throw new RuntimeException("ERROR: in strand" + strand + 
-							", flexible residue " + removed + " exceeds strand limits");
-			}
-			else ++it;
-		}
+        for( int it = 0; it < flexRes2.size(); ) {
+            if( !strandLimits.contains( flexRes2.get(it) ) ) {
 
-		ArrayList<String> limits = new ArrayList<>();
-		limits.add(flexRes2.get(0));
-		limits.add(flexRes2.get(flexRes2.size()-1));
-		ResidueTermini ans = new ResidueTermini(strand, Integer.valueOf(limits.get(0)), Integer.valueOf(limits.get(1)));
+                String removed = flexRes2.remove(it);
 
-		return ans;
-	}
+                if( strandResNums.contains( removed ) )
+                    throw new RuntimeException("ERROR: in strand" + strand +
+                            ", flexible residue " + removed + " exceeds strand limits");
+            }
+            else ++it;
+        }
 
+        ArrayList<String> limits = new ArrayList<>();
+        limits.add(flexRes2.get(0));
+        limits.add(flexRes2.get(flexRes2.size()-1));
+        ResidueTermini ans = new ResidueTermini(strand, limits.get(0), limits.get(1));
 
-	void filterResiduesByStrand( int strand, ArrayList<String> flexRes, 
-			ArrayList<ArrayList<String>> allowedAAs ) {
+        return ans;
+    }
 
-		ResidueTermini strandLimits = getStrandLimits(strand);
-		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
-		for( int it = 0; it < flexRes.size(); ) {
-			if( !strandLimits.contains( Integer.parseInt(flexRes.get(it)) ) ) {
+    void filterResiduesByStrand( int strand, ArrayList<String> flexRes,
+                                 ArrayList<ArrayList<String>> allowedAAs ) {
 
-				String removed = flexRes.remove(it);
+        ResidueTermini strandLimits = getStrandLimits(strand);
+        ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
-				if( strandResNums.contains( removed ) )
-					throw new RuntimeException("ERROR: in strand" + strand + 
-							", flexible residue " + removed + " exceeds strand limits");
+        for( int it = 0; it < flexRes.size(); ) {
+            if( !strandLimits.contains( flexRes.get(it) ) ) {
 
-				allowedAAs.remove(it);
-			}
-			else ++it;
-		}
+                String removed = flexRes.remove(it);
 
-		if(flexRes.size() != allowedAAs.size()){
-			throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
-					+ "and allowed AA type parameters!");
-		}
-	}
+                if( strandResNums.contains( removed ) )
+                    throw new RuntimeException("ERROR: in strand" + strand +
+                            ", flexible residue " + removed + " exceeds strand limits");
+
+                allowedAAs.remove(it);
+            }
+            else ++it;
+        }
+
+        if(flexRes.size() != allowedAAs.size()){
+            throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+                    + "and allowed AA type parameters!");
+        }
+    }
 }

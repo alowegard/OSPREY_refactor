@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
@@ -91,7 +92,7 @@ public class PerturbationBlock implements Serializable, DOFBlock {
         //we also need to idealize all the sidechains
         for(Residue res : allResidues){
             double chi1 = GenChi1Calc.getGenChi1(res);
-            SidechainIdealizer.idealizeSidechain(res);
+            SidechainIdealizer.idealizeSidechain(EnvironmentVars.resTemplates, res);
             GenChi1Calc.setGenChi1(res, chi1);
         }
     }
@@ -232,5 +233,11 @@ public class PerturbationBlock implements Serializable, DOFBlock {
     
         return copiedBlock;
     }
+
+    public ArrayList<Perturbation> getPerts() {
+        return perts;
+    }
+    
+    
     
 }

@@ -43,8 +43,12 @@ public class CUBuffer<T extends Buffer> {
 		return buf;
 	}
 	
-	public Pointer makeDevicePointer() {
+	public Pointer getDevicePointer() {
 		return Pointer.to(pdBuf);
+	}
+	
+	public int size() {
+		return buf.capacity();
 	}
 	
 	public long getNumBytes() {
@@ -90,19 +94,27 @@ public class CUBuffer<T extends Buffer> {
 	}
 	
 	public void cleanup() {
-		stream.getContext().attachCurrentThread();
-		stream.getContext().unpinBuffer(phBuf);
-		stream.getContext().free(pdBuf);
-		phBuf = null;
-		pdBuf = null;
+		try {
+			stream.getContext().attachCurrentThread();
+			stream.getContext().unpinBuffer(phBuf);
+			stream.getContext().free(pdBuf);
+			phBuf = null;
+			pdBuf = null;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+		}
 	}
 	
 	@Override
 	protected void finalize()
 	throws Throwable {
-		if (phBuf != null || pdBuf != null) {
-			System.err.println("CUBuffer not cleaned up! This will probably cause future buffer allocations to fail.");
+		try {
+			if (phBuf != null || pdBuf != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
-		super.finalize();
 	}
 }

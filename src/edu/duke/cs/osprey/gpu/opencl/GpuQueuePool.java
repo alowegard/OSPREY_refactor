@@ -85,6 +85,12 @@ public class GpuQueuePool {
 	
 	public synchronized void release(GpuQueue queue) {
 		
+		// if we're already cleaned up, cleanup the queue now
+		if (queues == null) {
+			queue.cleanup();
+			return;
+		}
+		
 		for (int i=0; i<queues.size(); i++) {
 			if (queues.get(i) == queue) {
 				checkedOut[i] = false;
@@ -93,9 +99,25 @@ public class GpuQueuePool {
 	}
 
 	public void cleanup() {
-		for (GpuQueue queue : queues) {
-			queue.cleanup();
+		if (queues != null) {
+			for (GpuQueue queue : queues) {
+				queue.cleanup();
+			}
+			queues = null;
+			queuesByGpu = null;
 		}
-		queuesByGpu.clear();
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (queues != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
+		}
 	}
 }

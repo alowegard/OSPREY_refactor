@@ -22,16 +22,25 @@ public class Gpu {
 		// get name
 		byte[] bytes = new byte[1024];
 		JCudaDriver.cuDeviceGetName(bytes, bytes.length, device);
-		name = new String(bytes);
+		int len = 0;
+		while (bytes[len++] != 0);
+		name = new String(bytes).substring(0, len - 1);
 		
 		// get total and free memory
-		CUcontext cuCtx = new CUcontext();
-		JCudaDriver.cuCtxCreate(cuCtx, 0, device);
-		long[][] longs = new long[2][1];
-		JCudaDriver.cuMemGetInfo(longs[0], longs[1]);
-		freeMemory = longs[0][0];
-		totalMemory = longs[1][0];
-		JCudaDriver.cuCtxDestroy(cuCtx);
+		// (if it's even possible... if a GPU is out of memory, we can't even query it)
+		try {
+			CUcontext cuCtx = new CUcontext();
+			JCudaDriver.cuCtxCreate(cuCtx, 0, device);
+			long[][] longs = new long[2][1];
+			JCudaDriver.cuMemGetInfo(longs[0], longs[1]);
+			freeMemory = longs[0][0];
+			totalMemory = longs[1][0];
+			JCudaDriver.cuCtxDestroy(cuCtx);
+		} catch (Throwable t) {
+			// assume out of memory
+			freeMemory = 0;
+			totalMemory = 0;
+		}
 		
 		// get attributes
 		computeVersion = new int[] {

@@ -11,6 +11,7 @@ import java.io.Writer;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.gmec.EnergyRange;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
@@ -19,6 +20,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
  * 
  * @author mhall44
  */
+@Deprecated
 public class ConfPrinter {
 	
     private static final int LabelSize = 30;
@@ -32,7 +34,7 @@ public class ConfPrinter {
     
     boolean printEPICEnergy;
     
-    ConfPrinter(SearchProblem searchProb, String confFileName, boolean printEPICEnergy){
+    public ConfPrinter(SearchProblem searchProb, String confFileName, boolean printEPICEnergy){
         //open (for writing) a file to record conformations in
         searchSpace = searchProb;
         this.confFileName = confFileName;
@@ -46,9 +48,9 @@ public class ConfPrinter {
             // possible after a failure that aborts the program
             confFileHandle = new FileWriter(confFileName);
         }
-        catch(Exception e){
+        catch(IOException ex){
             throw new RuntimeException("ERROR OPENING CONF FILE.  NAME: "
-                    + confFileName + e.getMessage());
+                    + confFileName, ex);
         }
     }
     
@@ -82,7 +84,7 @@ public class ConfPrinter {
         return getConfReport(conf, null);
     }
     
-    public String getConfReport(EnergiedConf conf, EnergyWindow window) {
+    public String getConfReport(EnergiedConf conf, EnergyRange window) {
         StringBuilder buf = new StringBuilder();
         
         buf.append(getConfReport(conf.getAssignments()));
@@ -112,7 +114,7 @@ public class ConfPrinter {
     	return getConfReport(conf, null);
     }
     
-    public String getConfReport(ScoredConf conf, EnergyWindow window) {
+    public String getConfReport(ScoredConf conf, EnergyRange window) {
         StringBuilder buf = new StringBuilder();
         buf.append(getConfReport(conf.getAssignments()));
         

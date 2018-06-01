@@ -5,10 +5,10 @@
  */
 package edu.duke.cs.osprey.dof.deeper;
 
-import edu.duke.cs.osprey.dof.ProlinePucker;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DihedralRotation;
+import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -33,7 +33,7 @@ public class SidechainIdealizer {
     //a mutated residue would already be in an idealized conformation, and if the residue is not already
     //(e.g. because it's a wild-type rotamer) it probably shouldn't be
     //This function rotates the sidechain as a rigid body about CA
-    public static void idealizeSidechain(Residue res){
+    public static void idealizeSidechain(ResidueTemplateLibrary templateLib, Residue res){
 
         //Coordinates of key atoms in the residue
         double NCoord[] = res.getCoordsByAtomName("N");
@@ -55,8 +55,7 @@ public class SidechainIdealizer {
                 HASystem = 2;
             }
             if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
+                throw new Error("could not parse HA names for " + res.fullName);
             }
 
 
@@ -78,8 +77,7 @@ public class SidechainIdealizer {
                 HANum = res.getAtomIndexByName("3HA");
 
             if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
+                throw new Error("could not parse HA names for " + res.fullName);
             }
 
             t1 = VectorAlgebra.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
@@ -139,7 +137,7 @@ public class SidechainIdealizer {
         }
 
         if(res.template.name.equalsIgnoreCase("PRO"))//Idealize the CG, CD and ring hydrogen positions
-            idealizeProRing(res);
+            idealizeProRing(templateLib, res);
         //For proline, the above sidechain idealization operations do not move CD
     }
     
@@ -180,7 +178,7 @@ public class SidechainIdealizer {
     
     
     
-    public static boolean idealizeProRing(Residue res){
+    public static boolean idealizeProRing(ResidueTemplateLibrary templateLib, Residue res){
         //Make an idealized ring for the given residue, given the current positions of the backbone atoms, CB, and CD
         //The pucker specified in res.pucker will be applied:
         //UP pucker means the smaller of the two possible solutions for chi1; DOWN pucker means the larger.
@@ -191,15 +189,14 @@ public class SidechainIdealizer {
 
         
         if( ! res.template.name.equalsIgnoreCase("PRO") ){
-            System.err.println("Error: trying to idealize the proline ring on a non-proline");
-            System.exit(1);
+            throw new Error("trying to idealize the proline ring on a non-proline");
         }
         
         double CANCD_ideal = (double)(Math.PI*111.5/180);
         double CACBCG_ideal = (double)(Math.PI*103.9/180);
         //from Ho et al, Protein Sci 2005;14:1011
         
-        Residue idealPro = EnvironmentVars.resTemplates.getTemplateForMutation("PRO", res, true).templateRes;
+        Residue idealPro = templateLib.getTemplateForMutation("PRO", res).templateRes;
         
 
         //actual coordinates
@@ -272,7 +269,7 @@ public class SidechainIdealizer {
             double newChi1;
             
             //we want to idealize the pucker given by res.pucker.curPucker
-            if(res.pucker.getCurPucker() == ProlinePucker.UP)
+            if(res.pucker.getCurPucker() == ProlinePucker.Direction.UP)
                 newChi1 = asr - beta;
             else//DOWN
                 newChi1 = (double)Math.PI - beta - asr;//Larger newChi1, since an arcsine is acute (puckers merge when asr = pi/2, i.e. A=R)
@@ -383,8 +380,7 @@ public class SidechainIdealizer {
             System.arraycopy( HD2Coord, 0, res.coords, 3*res.getAtomIndexByName("3HD"), 3 );
         }
         else{
-            System.err.println("Error: Can't parse atom names for " + res.fullName);
-            System.exit(1);
+            throw new Error("Can't parse atom names for " + res.fullName);
         }
 
     }

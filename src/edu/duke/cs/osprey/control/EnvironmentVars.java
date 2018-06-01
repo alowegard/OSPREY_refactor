@@ -5,14 +5,16 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 
 
+@Deprecated
 public class EnvironmentVars {
+    // TODO: get rid of global state
 	
 	//key parameter sets to use throughout the program for energy-function and flexibility reference
         public static EnergyFunctionGenerator curEFcnGenerator;
-        public static GenericResidueTemplateLibrary resTemplates;
+        public static ResidueTemplateLibrary resTemplates;
         
         //Regulation of structure read-in/template assignment
         public static boolean assignTemplatesToStruct = true;//Assign templates when we read in a template.

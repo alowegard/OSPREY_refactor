@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.confspace;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
 	
@@ -30,6 +32,10 @@ public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
     public TupleMatrixBoolean(ConfSpace cSpace, double pruningInterval, boolean defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);
     }
+
+    public TupleMatrixBoolean(SimpleConfSpace confSpace, double pruningInterval, boolean defaultHigherInteraction) {
+		super(confSpace, pruningInterval, defaultHigherInteraction);
+	}
     
     public TupleMatrixBoolean(int numPos, int[] numAllowedAtPos, double pruningInterval, boolean defaultHigherInteraction) {
     	super(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);
@@ -79,4 +85,11 @@ public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
     		}
     	}
     }
+
+	@Override
+	public String toString() {
+		return toString(6, (isPruned) -> {
+			return isPruned ? "  X   " : "      ";
+		});
+	}
 }

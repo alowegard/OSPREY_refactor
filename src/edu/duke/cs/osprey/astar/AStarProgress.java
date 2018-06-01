@@ -1,9 +1,9 @@
 package edu.duke.cs.osprey.astar;
 
 import java.io.Serializable;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class AStarProgress implements Serializable {
@@ -38,7 +38,7 @@ public class AStarProgress implements Serializable {
 		numLeafNodes = 0;
 	}
 	
-	public void reportInternalNode(int level, double gscore, double hscore, int numNodesInQueue, int numAddedToQueue) {
+	public void reportInternalNode(int level, double gscore, double hscore, long numNodesInQueue, int numAddedToQueue) {
 		
 		this.numNodesExpanded++;
 		this.numNodesInQueue = numNodesInQueue;
@@ -75,14 +75,14 @@ public class AStarProgress implements Serializable {
 	
 	public String makeProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
-		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("A* g:%10.4f, h:%10.4f, f:%10.4f, level:%4d/%4d/%4d, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%",
+		return String.format("A* g:%10.4f, h:%10.4f, f:%10.4f, level:%4d/%4d/%4d, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%s, extMem:%s",
 			gscore, hscore, gscore + hscore,
 			level, deepestLevel, numLevels - 1,
 			numNodesExpanded, numNodesInQueue,
 			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
-			100f*heapMem.getUsed()/heapMem.getMax()
+			JvmMem.getOldPool(),
+			ExternalMemory.getUsageReport()
 		);
 	}
 	
@@ -90,7 +90,7 @@ public class AStarProgress implements Serializable {
 		goalScore = val;
 	}
 	
-	public void reportLeafNode(double gscore, int numNodesInQueue) {
+	public void reportLeafNode(double gscore, long numNodesInQueue) {
 		
 		this.numNodesInQueue = numNodesInQueue;
 		
@@ -124,14 +124,14 @@ public class AStarProgress implements Serializable {
 
 	private String makeLeafProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
-		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%",
+		return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%s, extMem:%s",
 			numLeafNodes,
 			gscore, goalScore - gscore,
 			numNodesExpanded, numNodesInQueue,
 			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
-			100f*heapMem.getUsed()/heapMem.getMax()
+			JvmMem.getOldPool(),
+			ExternalMemory.getUsageReport()
 		);
 	}
 }

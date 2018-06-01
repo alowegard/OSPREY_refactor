@@ -1,60 +1,58 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
-import java.util.HashMap;
-
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
- * 
+ *
  */
 public class MSKStarSettings {
-	
-	public static double TIMEOUT_HRS = Double.MAX_VALUE;
-	public static HashMap<Integer, HashMap<Integer, Boolean>> MEMOIZE_STATE_PFS;
-	
-	public boolean isReportingProgress;
-	public double targetEpsilon;
-	public int state;
-	public int numTopConfsToSave;
-	public MSConfigFileParser cfp;
-	public KStarScoreType scoreType;
-	public MSSearchProblem[] search;
-	public boolean isFinal;
-	public boolean computeGMEC;
-	public LMB[] constraints;
-	public PartitionFunctionType[] pfTypes;
-	public ConfEnergyCalculator.Async[] ecalcs;
-	
-	public MSKStarSettings() {}
-	
-	public MSKStarSettings(MSKStarSettings other) {
-		this.isReportingProgress = other.isReportingProgress;
-		this.targetEpsilon = other.targetEpsilon;
-		this.state = other.state;
-		this.numTopConfsToSave = other.numTopConfsToSave;
-		this.cfp = other.cfp;
-		this.scoreType = other.scoreType;
-		this.computeGMEC = other.computeGMEC;
-		
-		this.search = new MSSearchProblem[other.search.length];
-		System.arraycopy(other.search, 0, this.search, 0, other.search.length);
-		
-		this.isFinal = other.isFinal;
-		this.constraints = other.constraints;
-		
-		this.pfTypes = new PartitionFunctionType[other.pfTypes.length];
-		System.arraycopy(other.pfTypes, 0, this.pfTypes, 0, other.pfTypes.length);		
-		
-		this.ecalcs = new ConfEnergyCalculator.Async[other.ecalcs.length];
-		System.arraycopy(other.ecalcs, 0, this.ecalcs, 0, other.ecalcs.length);
-	}
-	
-	static boolean memoizePFs(int state, int substate) {
-		if(MEMOIZE_STATE_PFS == null || MEMOIZE_STATE_PFS.get(state) == null) return false;
-		Boolean ans = MEMOIZE_STATE_PFS.get(state).get(substate);
-		return ans == null ? false : ans;
-	}
+
+    public boolean isReportingProgress;
+    public double targetEpsilon;
+    public int state;
+    public int numTopConfsToSave;
+    public MSConfigFileParser cfp;
+    public KStarScoreType scoreType;
+    public MSSearchProblem[] search;
+    public boolean isFinal;
+    public LMB[] constraints;
+    public PartitionFunctionType[] pfTypes;
+    public GMECConfEnergyCalculator.Async[] ecalcs;
+
+    public MSKStarSettings() {}
 }

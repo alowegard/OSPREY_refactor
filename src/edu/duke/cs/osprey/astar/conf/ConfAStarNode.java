@@ -1,117 +1,92 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.astar.conf;
 
-import java.util.Arrays;
+import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.UnpossibleError;
 
-public class ConfAStarNode implements Comparable<ConfAStarNode> {
+public interface ConfAStarNode extends Comparable<ConfAStarNode> {
 
-	public static class Link implements Comparable<Link> {
-		
-		// NOTE: try to keep storage here as small as possible
-		// we expect to have millions of nodes in memory
-		private Link parent;
-		private short pos;
-		private short rc;
-		
-		public Link() {
-			this(null, -1, -1);
-		}
-		
-		public Link(Link parent, int pos, int rc) {
-			assert (pos <= Short.MAX_VALUE);
-			assert (rc <= Short.MAX_VALUE);
-			this.parent = parent;
-			this.pos = (short)pos;
-			this.rc = (short)rc;
-		}
-		
-		public Link getParent() {
-			return parent;
-		}
-		
-		public int getPos() {
-			return pos;
-		}
-		
-		public int getRC() {
-			return rc;
-		}
-		
-		public boolean isRoot() {
-			return parent == null;
-		}
+	ConfAStarNode assign(int pos, int rc);
+	double getGScore();
+	void setGScore(double val);
+	double getHScore();
+	void setHScore(double val);
+	int getLevel();
+	void getConf(int[] conf);
+	void index(ConfIndex index);
 
-		@Override
-		public int compareTo(Link other) {
-			return pos - other.pos;
-		}
-	}
-	
-	// NOTE: try to keep storage here as small as possible
-	// we expect to have millions of nodes in memory
-	private short level; // NOTE: could get rid of this and have getLevel() compute it
-	private Link link;
-	private double gscore;
-	private double hscore;
-	
-	private ConfAStarNode(int level, Link link) {
-		assert (level <= Short.MAX_VALUE);
-		this.level = (short)level;
-		this.link = link;
-		gscore = Double.NaN;
-		hscore = Double.NaN;
-	}
-	
-	public ConfAStarNode() {
-		this(0, new Link());
-	}
-
-	public ConfAStarNode(ConfAStarNode parent, int assignedPos, int assignedRc) {
-		this(parent.level + 1, new Link(parent.link, assignedPos, assignedRc));
-	}
-	
-	public Link getLink() {
-		return link;
-	}
-	
-	@Override
-	public int compareTo(ConfAStarNode other) {
-		return Double.compare(getScore(), other.getScore());
-	}
-
-	public void getConf(int[] conf) {
-		Arrays.fill(conf, -1);
-		Link link = this.link;
-		while (!link.isRoot()) {
-			conf[link.getPos()] = link.getRC();
-			link = link.getParent();
-		}
-	}
-	
-	public int[] makeConf(int numPos) {
+	default int[] makeConf(int numPos) {
 		int[] conf = new int[numPos];
 		getConf(conf);
 		return conf;
 	}
-	
-	public double getScore() {
-		return gscore + hscore;
-	}
-	
-	public double getGScore() {
-		return gscore;
-	}
-	public void setGScore(double val) {
-		gscore = val;
-	}
-	
-	public double getHScore() {
-		return hscore;
-	}
-	public void setHScore(double val) {
-		hscore = val;
+
+	default double getScore() {
+		return getGScore() + getHScore();
 	}
 
-	public int getLevel() {
-		return level;
+	@Override
+	default int compareTo(ConfAStarNode other) {
+		return Double.compare(getScore(), other.getScore());
+	}
+
+	default double getGScore(MathTools.Optimizer optimizer) {
+		return Tools.optimizeScore(getGScore(), optimizer);
+	}
+	default void setGScore(double val, MathTools.Optimizer optimizer) {
+		setGScore(Tools.optimizeScore(val, optimizer));
+	}
+
+	default double getHScore(MathTools.Optimizer optimizer) {
+		return Tools.optimizeScore(getHScore(), optimizer);
+	}
+	default void setHScore(double val, MathTools.Optimizer optimizer) {
+		setHScore(Tools.optimizeScore(val, optimizer));
+	}
+
+	default double getScore(MathTools.Optimizer optimizer) {
+		return Tools.optimizeScore(getScore(), optimizer);
+	}
+
+	public static class Tools {
+
+		public static double optimizeScore(double score, MathTools.Optimizer optimizer) {
+			switch (optimizer) {
+				case Minimize: return score; // the pq is naturally a min-heap
+				case Maximize: return -score; // negate the score so the pq acts like a max-heap
+				default: throw new UnpossibleError();
+			}
+		}
 	}
 }

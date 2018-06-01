@@ -7,12 +7,13 @@ package edu.duke.cs.osprey.minimization;
 //Interface for minimizers.  Instantiated using an ObjectiveFunction
 
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.tools.AutoCleanable;
 
 /**
  *
  * @author mhall44
  */
-public interface Minimizer {
+public interface Minimizer extends AutoCleanable {
 	
     public static class Result {
     
@@ -24,14 +25,30 @@ public interface Minimizer {
             this.energy = energy;
         }
     }
-    
-    Result minimize();
-    
-    public static interface NeedsCleanup extends Minimizer {
-    	void cleanup();
-    }
+
+    default Result minimize() {
+    	return minimizeFromCenter();
+	}
+
+	Result minimizeFromCenter();
+	Result minimizeFrom(DoubleMatrix1D x);
+
+	public static interface NeedsCleanup extends Minimizer, AutoCleanable {}
     
     public static interface Reusable extends Minimizer {
     	void init(ObjectiveFunction f);
     }
+    
+    public static class Tools {
+    	public static void cleanIfNeeded(Minimizer minimizer) {
+    		if (minimizer != null && minimizer instanceof Minimizer.NeedsCleanup) {
+    			((Minimizer.NeedsCleanup)minimizer).cleanWithoutCrashing();
+    		}
+    	}
+    }
+
+	@Override
+	default void clean() {
+		Tools.cleanIfNeeded(this);
+	}
 }

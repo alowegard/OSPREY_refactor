@@ -36,10 +36,11 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
     ArrayList<ArrayList<Integer>> termDOFs;//for each term, which degrees of freedom (in curDOFVals) it operates on
 
     
-    public EPICEnergyFunction(ArrayList<EPoly> terms) {
+    public EPICEnergyFunction(ArrayList<EPoly> terms, boolean includeMinE) {
         //create an energy function from some terms, will assign curDOFVals, termDOFs, and (if needed) sharedMolec
         //later
         this.terms = terms;
+        this.includeMinE = includeMinE;
     }
     
     
@@ -60,11 +61,12 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
         for(EPoly term : terms){
             ArrayList<Integer> singleTermDOFs = new ArrayList<>();
             
-            for(DegreeOfFreedom dof : term.DOFs){//DOF referred to by the current polynomial term
+            for(String dofName : term.DOFNames){//DOF referred to by the current polynomial term
                 
                 int indexOfDOF = -1;//index of dof in DOFs and thus in curDOFVals
                 for(int DOFNum=0; DOFNum<DOFs.size(); DOFNum++){
-                    if(dof == DOFs.get(DOFNum)){
+                    //if(dof == DOFs.get(DOFNum)){
+                    if(dofName.equalsIgnoreCase(DOFs.get(DOFNum).getName())){
                         indexOfDOF = DOFNum;
                         break;
                     }
@@ -93,6 +95,17 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
         }
     }
     
+    
+    public void unassignSharedMolec(){
+        //delete the sharedMolecEnergyFunction for each of the SAPE terms used by this EPICEnergyFunction
+        //If a new molecule is made for every minimization and this isn't done,
+        //there's effectively a memory leak where different SAPE terms start filling up with old molecules
+        for(EPoly term : terms){
+            if(term.sapeTerm != null){
+                term.sapeTerm.sharedMolecEnergyFunction = null;
+            }
+        }
+    }
     
     
     
@@ -160,14 +173,15 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
         ArrayList<EnergyFunction> ans = new ArrayList<>();
         
         for(DegreeOfFreedom dof : DOFs){
+            String dofName = dof.getName();
             ArrayList<EPoly> dofTerms = new ArrayList<>();
             for(EPoly term : terms){
-                if(term.DOFs.contains(dof)){
+                if(term.DOFNames.contains(dofName)){
                     dofTerms.add(term);
                 }
             }
             
-            EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms);
+            EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms, includeMinE);
             partial.init(molec, DOFs, curDOFVals);
             
             ans.add(partial);

@@ -85,7 +85,7 @@ public class CCDMinimizer implements Minimizer {
 
     ObjectiveFunction objFcn;
 
-    DoubleMatrix1D x;//Current values of degrees of freedom
+    DoubleMatrix1D    x;//Current values of degrees of freedom
 
     int numDOFs;
 
@@ -175,21 +175,28 @@ public class CCDMinimizer implements Minimizer {
         preferUpRipple = val;
     }
 
+    @Override
+	public Minimizer.Result minimizeFromCenter() {
+		return minimizeFrom(null);
+	}
 
-    public Minimizer.Result minimize() {
-        
-        //First figure out the constraints and initial values
-        //(since the minimizer might be used for many rotameric states, etc.,
-        //this can't be done in the constructor)
-        DoubleMatrix1D constr[] = objFcn.getConstraints();
-        DOFmin = constr[0];
-        DOFmax = constr[1];
-        
-        if(!compInitVals())//Initialize x
-            return null;//No initial values found (this is currently only for IBEX)
-        
+    @Override
+    public Minimizer.Result minimizeFrom(DoubleMatrix1D x) {
+
+    	this.singleInitVal = x;
+
+		//First figure out the constraints and initial values
+		//(since the minimizer might be used for many rotameric states, etc.,
+		//this can't be done in the constructor)
+		DoubleMatrix1D constr[] = objFcn.getConstraints();
+		DOFmin = constr[0];
+		DOFmax = constr[1];
+
+		if(!compInitVals())//Initialize x
+			return null;//No initial values found (this is currently only for IBEX)
+
         minimizeFromCurPoint();
-        return new Minimizer.Result(x, objFcn.getValue(x));
+        return new Minimizer.Result(this.x, objFcn.getValue(this.x));
     }
 
     public void minimizeFromCurPoint(){//minimize from current starting vector
@@ -661,12 +668,16 @@ public class CCDMinimizer implements Minimizer {
         boolean badInit = satisfyNonBoxConstr();
 
         if(badInit){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
+    }
+    
+    private static String getGenCoordTypes(GenCoord[] coords) {
+        StringBuilder buf = new StringBuilder();
+        for (GenCoord coord : coords) {
+            buf.append("\n" + coord.type);
+        }
+        return buf.toString();
     }
 
     
@@ -724,11 +735,7 @@ public class CCDMinimizer implements Minimizer {
         }
 
         if( Double.isInfinite(bestCornerE) ){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
         else{//Set the initial values to the best corner
             x = bestInitVals;
@@ -805,11 +812,7 @@ public class CCDMinimizer implements Minimizer {
         }
 
         if( Double.isInfinite(bestE) ){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
         else{//Set the initial values to the best corner
             x = bestInitVals;

@@ -8,6 +8,8 @@ import java.util.List;
 
 public class GpuStreamPool {
 	
+	public static boolean printPoolSize = true;
+	
 	private int numStreamsPerGpu;
 	private List<Context> contexts;
 	private List<List<GpuStream>> streamsByGpu;
@@ -37,20 +39,19 @@ public class GpuStreamPool {
 		// crude load-balancing strategy. otherwise, gpus are always hit in
 		// numerical device order for multiple osprey instances, leading to 
 		// unnecessary resource contention.
-		Collections.sort(gpus, new Comparator<Gpu>() {
-			@Override
-			public int compare(Gpu o1, Gpu o2) {
-				return o1.getFreeMemory() > o2.getFreeMemory() ? -1 : 1;
-			}
-		});
+		gpus.sort(Comparator.comparing((Gpu gpu) -> gpu.getFreeMemory()).reversed());
 
 		numGpus = Math.min(numGpus, gpus.size());
 		
 		// make contexts for all the gpus
 		contexts = new ArrayList<>();
 		for (Gpu gpu : gpus) {
-			Context context = new Context(gpu);
-			contexts.add(context);
+			try {
+				Context context = new Context(gpu);
+				contexts.add(context);
+			} catch (Throwable t) {
+				// can't make a context, assume we can't use this GPU
+			}
 		}
 		
 		// make n stream for each gpu
@@ -78,7 +79,9 @@ public class GpuStreamPool {
 		checkedOut = new boolean[streams.size()];
 		Arrays.fill(checkedOut, false);
 		
-		System.out.println(String.format("GpuStreamPool: using %d stream(s) across %d gpu(s)", streams.size(), numGpus));
+		if (printPoolSize) {
+			System.out.println(String.format("GpuStreamPool: using %d stream(s) across %d gpu(s)", streams.size(), numGpus));
+		}
 	}
 	
 	public int getNumGpus() {
@@ -91,6 +94,16 @@ public class GpuStreamPool {
 	
 	public int getNumStreams() {
 		return streams.size();
+	}
+	
+	public int getNumStreamsAvailable() {
+		int num = 0;
+		for (int i=0; i<streams.size(); i++) {
+			if (!checkedOut[i]) {
+				num++;
+			}
+		}
+		return num;
 	}
 	
 	public synchronized GpuStream checkout() {
@@ -110,6 +123,12 @@ public class GpuStreamPool {
 	
 	public synchronized void release(GpuStream stream) {
 		
+		// if we've already cleaned up, no need to release, just cleanup now
+		if (streams == null) {
+			stream.cleanup();
+			return;
+		}
+		
 		for (int i=0; i<streams.size(); i++) {
 			if (streams.get(i) == stream) {
 				checkedOut[i] = false;
@@ -118,13 +137,29 @@ public class GpuStreamPool {
 	}
 
 	public void cleanup() {
-		for (GpuStream stream : streams) {
-			stream.cleanup();
+		if (streams != null) {
+			
+			for (GpuStream stream : streams) {
+				stream.cleanup();
+			}
+			streams = null;
+			for (Context context : contexts) {
+				context.cleanup();
+			}
+			contexts = null;
 		}
-		streams.clear();
-		for (Context context : contexts) {
-			context.cleanup();
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (streams != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
-		contexts.clear();
 	}
 }

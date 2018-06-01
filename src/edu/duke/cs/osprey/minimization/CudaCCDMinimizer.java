@@ -11,11 +11,10 @@ import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
 public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private GpuStreamPool streams;
-	private MoleculeModifierAndScorer mof;
+	private ObjectiveFunction f;
 	private GpuStream stream;
 	private CCDKernelCuda kernel;
 	private ObjectiveFunction.DofBounds dofBounds;
-	private DoubleMatrix1D x;
 
 	public CudaCCDMinimizer(GpuStreamPool streams) {
 		this.streams = streams;
@@ -29,12 +28,7 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 	@Override
 	public void init(ObjectiveFunction f) {
 		
-		// get the molecule objective function
-		if (f instanceof MoleculeModifierAndScorer) {
-			mof = (MoleculeModifierAndScorer)f;
-		} else {
-			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
-		}
+		this.f = f;
 		
 		if (kernel == null) {
 			// make the kernel
@@ -47,30 +41,44 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 				throw new Error("can't make CCD kernel", ex);
 			}
 		}
-		kernel.init(mof);
 		
-		// init x to the center of the bounds
-		dofBounds = new ObjectiveFunction.DofBounds(mof.getConstraints());
-		x = DoubleFactory1D.dense.make(dofBounds.size());
-		dofBounds.getCenter(x);
+		// get the molecule objective function
+		if (f instanceof MoleculeModifierAndScorer) {
+			kernel.init(new MoleculeObjectiveFunction((MoleculeModifierAndScorer)f));
+		} else if (f instanceof MoleculeObjectiveFunction) {
+			kernel.init((MoleculeObjectiveFunction)f);
+		} else {
+			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
+		}
+
+		dofBounds = new ObjectiveFunction.DofBounds(f.getConstraints());
 	}
-	
+
 	@Override
-	public Minimizer.Result minimize() {
+	public Minimizer.Result minimizeFromCenter() {
+
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(dofBounds.size());
+		dofBounds.getCenter(x);
+
+		return minimizeFrom(x);
+	}
+
+	@Override
+	public Minimizer.Result minimizeFrom(DoubleMatrix1D x) {
 		
 		// do the minimization
-		mof.setDOFs(x);
+		f.setDOFs(x);
 		kernel.uploadCoordsAsync();
 		Minimizer.Result result = kernel.runSync(x, dofBounds);
 		
 		// update the CPU-side molecule
-		mof.setDOFs(result.dofValues);
+		f.setDOFs(result.dofValues);
 		
 		return result;
 	}
 
 	@Override
-	public void cleanup() {
+	public void clean() {
 		if (kernel != null) {
 			kernel.cleanup();
 			kernel = null;

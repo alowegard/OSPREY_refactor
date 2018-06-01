@@ -1,5 +1,38 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.ematrix;
 
+import java.io.File;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
@@ -10,94 +43,42 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 import edu.duke.cs.osprey.tools.Progress;
 
+@Deprecated
 public abstract class SimpleEnergyMatrixCalculator {
-	
-	private class MoleculeTask {
-		
-		public ParameterizedMoleculePool pmols;
-		
-		protected ParameterizedMoleculeCopy checkout() {
-			synchronized (pmols) {
-				return pmols.checkout();
-			}
-		}
-		
-		protected void release(ParameterizedMoleculeCopy pmol) {
-			synchronized (pmols) {
-				pmols.release(pmol);
-			}
-		}
-	}
-	
-	private class SingleTask extends MoleculeTask implements Runnable {
-		
-		public int pos1;
-		public int rc1;
-		public Minimizer.Result result;
 
-		@Override
-		public void run() {
-			ParameterizedMoleculeCopy pmol = checkout();
-			try {
-				result = ecalc.calcSingle(pos1, rc1, pmol);
-			} finally {
-				release(pmol);
-			}
-		}
-	}
-	
-	private class PairTask extends MoleculeTask implements Runnable {
-		
-		public int pos1;
-		public int rc1;
-		public int pos2;
-		public int numrc2;
-		public Minimizer.Result[] results;
-
-		@Override
-		public void run() {
-			ParameterizedMoleculeCopy pmol = checkout();
-			try {
-				
-				results = new Minimizer.Result[numrc2];
-				for (int rc2=0; rc2<numrc2; rc2++) {
-					results[rc2] = ecalc.calcPair(pos1, rc1, pos2, rc2, pmol);
-				}
-				
-			} finally {
-				release(pmol);
-			}
-		}
-	}
-	
 	protected SimpleEnergyCalculator ecalc;
 	protected TaskExecutor tasks;
-	
+
 	protected SimpleEnergyMatrixCalculator() {
 		// only subclasses should directly make these
 	}
-	
+
+	public EnergyMatrix calcEnergyMatrix(File cacheFile) {
+		return ObjectIO.readOrMake(cacheFile, EnergyMatrix.class, "energy matrix", (context) -> calcEnergyMatrix());
+	}
+
 	public EnergyMatrix calcEnergyMatrix() {
 		EnergyMatrix emat = new EnergyMatrix(ecalc.confSpace, Double.POSITIVE_INFINITY);
 		calcMatrices(emat, null);
 		return emat;
 	}
-	
+
 	public DofMatrix calcDofMatrix() {
 		DofMatrix dofmat = new DofMatrix(ecalc.confSpace);
 		calcMatrices(null, dofmat);
 		return dofmat;
 	}
-	
+
 	public void calcMatrices(EnergyMatrix emat, DofMatrix dofmat) {
-		
+
 		if (emat != null && dofmat != null) {
-			
+
 			// make sure emat and dofmat match
 			if (emat.getNumPos() != dofmat.getNumPos()) {
 				throw new IllegalArgumentException("emat and dofmat must match size!");
@@ -109,7 +90,7 @@ public abstract class SimpleEnergyMatrixCalculator {
 				}
 			}
 		}
-		
+
 		AbstractTupleMatrix<?> sizemat = null;
 		if (emat != null) {
 			sizemat = emat;
@@ -120,12 +101,12 @@ public abstract class SimpleEnergyMatrixCalculator {
 		if (sizemat == null) {
 			throw new IllegalArgumentException("emat and dofmat cannot both be null");
 		}
-		
+
 		// if we're not using fancy parallelism, then just do synchronous calculations
 		if (tasks == null) {
 			tasks = new TaskExecutor();
 		}
-		
+
 		// count how much work there is to do
 		long numWork = 0;
 		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
@@ -137,98 +118,98 @@ public abstract class SimpleEnergyMatrixCalculator {
 			}
 		}
 		Progress progress = new Progress(numWork);
-		
+
 		// init molecule pool
 		ParameterizedMoleculePool pmols = new ParameterizedMoleculePool(ecalc.confSpace);
-		
-		// init task listeners
-		TaskListener singleListener = new TaskListener() {
-			@Override
-			public void onFinished(Runnable taskBase) {
-				SingleTask task = (SingleTask)taskBase;
-				
-				if (emat != null) {
-					emat.setOneBody(task.pos1, task.rc1, task.result.energy);
-				}
-				if (dofmat != null) {
-					dofmat.setOneBody(task.pos1, task.rc1, task.result.dofValues);
-				}
-				
-				progress.incrementProgress();
-			}
-		};
-		TaskListener pairListener = new TaskListener() {
-			@Override
-			public void onFinished(Runnable taskBase) {
-				PairTask task = (PairTask)taskBase;
-			
-				if (emat != null) {
-					for (int rc2=0; rc2<task.numrc2; rc2++) {
-						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].energy);
-					}
-				}
-				if (dofmat != null) {
-					for (int rc2=0; rc2<task.numrc2; rc2++) {
-						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].dofValues);
-					}
-				}
-				
-				progress.incrementProgress(task.numrc2);
-			}
-		};
-		
+
 		System.out.println("Calculating energies...");
-		
+
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-			
+
 				// NOTE: single terms tend to be much larger than pair terms,
 				// so split up single terms into more different tasks than pair terms
-				
+
 				// singles
-				SingleTask singleTask = new SingleTask();
-				singleTask.pmols = pmols;
-				singleTask.pos1 = pos1;
-				singleTask.rc1 = rc1;
-				tasks.submit(singleTask, singleListener);
-				
+				final int fpos1 = pos1;
+				final int frc1 = rc1;
+				tasks.submit(
+						() -> {
+							try (Checkout<ParameterizedMoleculeCopy> pmol = pmols.autoCheckout()) {
+								return ecalc.calcSingle(fpos1, frc1, pmol.get());
+							}
+						},
+						(Minimizer.Result result) -> {
+							if (emat != null) {
+								emat.setOneBody(fpos1, frc1, result.energy);
+							}
+							if (dofmat != null) {
+								dofmat.setOneBody(fpos1, frc1, result.dofValues);
+							}
+							progress.incrementProgress();
+						}
+				);
+
 				// pairs
 				for (int pos2=0; pos2<pos1; pos2++) {
-					
-					PairTask pairTask = new PairTask();
-					pairTask.pmols = pmols;
-					pairTask.pos1 = pos1;
-					pairTask.rc1 = rc1;
-					pairTask.pos2 = pos2;
-					pairTask.numrc2 = emat.getNumConfAtPos(pos2);
-					tasks.submit(pairTask, pairListener);
+
+					final int fpos2 = pos2;
+					final int numrc2 = emat.getNumConfAtPos(pos2);
+					tasks.submit(
+							() -> {
+								try (Checkout<ParameterizedMoleculeCopy> pmol = pmols.autoCheckout()) {
+									Minimizer.Result[] results = new Minimizer.Result[numrc2];
+									for (int rc2=0; rc2<numrc2; rc2++) {
+										results[rc2] = ecalc.calcPair(fpos1, frc1, fpos2, rc2, pmol.get());
+									}
+									return results;
+								}
+							},
+							(Minimizer.Result[] results) -> {
+								if (emat != null) {
+									for (int rc2=0; rc2<numrc2; rc2++) {
+										emat.setPairwise(fpos1, frc1, fpos2, rc2, results[rc2].energy);
+									}
+								}
+								if (dofmat != null) {
+									for (int rc2=0; rc2<numrc2; rc2++) {
+										dofmat.setPairwise(fpos1, frc1, fpos2, rc2, results[rc2].dofValues);
+									}
+								}
+								progress.incrementProgress(numrc2);
+							}
+					);
 				}
 			}
 		}
-		
+
 		tasks.waitForFinish();
 	}
-	
+
 	public abstract void cleanup();
-	
-	
+
+
 	public static class Cpu extends SimpleEnergyMatrixCalculator {
-		
+
 		private ThreadPoolTaskExecutor tasks;
-		
-		public Cpu(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
-			ecalc = new SimpleEnergyCalculator.Cpu(ffparams, confSpace, shellResidues);
-			tasks = new ThreadPoolTaskExecutor();
-			tasks.start(numThreads);
+
+		private Cpu(int numThreads, SimpleEnergyCalculator ecalc) {
+			this.ecalc = ecalc;
+			this.tasks = new ThreadPoolTaskExecutor();
+			this.tasks.start(numThreads);
 			super.tasks = tasks;
 		}
-		
+
+		public Cpu(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			this(numThreads, new SimpleEnergyCalculator.Cpu(ffparams, confSpace, shellResidues));
+		}
+
 		@Override
 		public void cleanup() {
 			tasks.stop();
 		}
 	}
-	
+
 	/**
 	 * This is pretty slow compared to the CPU,
 	 * so don't actually use it in the real world.
@@ -237,10 +218,10 @@ public abstract class SimpleEnergyMatrixCalculator {
 	 */
 	@Deprecated
 	public static class Cuda extends SimpleEnergyMatrixCalculator {
-		
+
 		private GpuStreamPool pool;
 		private ThreadPoolTaskExecutor tasks;
-		
+
 		public Cuda(int numGpus, int numStreamsPerGpu, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
 			pool = new GpuStreamPool(numGpus, numStreamsPerGpu);
 			ecalc = new SimpleEnergyCalculator.Cuda(pool, ffparams, confSpace, shellResidues);
@@ -248,7 +229,7 @@ public abstract class SimpleEnergyMatrixCalculator {
 			tasks.start(pool.getNumStreams());
 			super.tasks = tasks;
 		}
-		
+
 		@Override
 		public void cleanup() {
 			tasks.stop();

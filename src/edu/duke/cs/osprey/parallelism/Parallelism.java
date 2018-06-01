@@ -2,7 +2,39 @@ package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 
+/** Specified how Osprey should use available hardware. */
 public class Parallelism {
+	
+	public static class Builder {
+		
+		/** The number of CPUs cores to use. */
+		private int numCpus = 1;
+		
+		/** The number of GPUs to use. */
+		private int numGpus = 0;
+		
+		/** The number of simultaneous tasks that should be given to each GPU */
+		private int numStreamsPerGpu = 1;
+		
+		public Builder setNumCpus(int val) {
+			numCpus = val;
+			return this;
+		}
+		
+		public Builder setNumGpus(int val) {
+			numGpus = val;
+			return this;
+		}
+		
+		public Builder setNumStreamsPerGpu(int val) {
+			numStreamsPerGpu = val;
+			return this;
+		}
+		
+		public Parallelism build() {
+			return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
+		}
+	}
 	
 	public static enum Type {
 		
@@ -22,31 +54,32 @@ public class Parallelism {
 		public abstract int getParallelism(Parallelism parallelism);
 	}
 	
-	public static Parallelism makeDefault() {
-		return makeCpu(1);
-	}
-	
 	public static Parallelism makeCpu(int numThreads) {
 		return new Parallelism(numThreads, 0, 0);
 	}
 	
-	public static Parallelism makeGpu(int numGpus, int numStreamsPerGpu) {
-		return new Parallelism(0, numGpus, numStreamsPerGpu);
+	public static int getMaxNumCPUs() {
+		return Runtime.getRuntime().availableProcessors();
+	}
+	
+	public static Parallelism make(int numCpus, int numGpus, int numStreamsPerGpu) {
+		return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
 	}
 	
 	// TODO: this should eventually go into a CFP-only area
 	// it can be moved when we start refactoring config stuff to prepare for Python-land
 	public static Parallelism makeFromConfig(ConfigFileParser cfp) {
 		return new Parallelism(
-			cfp.getParams().getInt("MinimizationThreads", 1),
-			cfp.getParams().getInt("MinimizationGpus", 0),
-			cfp.getParams().getInt("MinimizationStreamsPerGpu", 1)
+			cfp.params.getInt("MinimizationThreads", 1),
+			cfp.params.getInt("MinimizationGpus", 0),
+			cfp.params.getInt("MinimizationStreamsPerGpu", 1)
 		);
 	}
 	
 	public final int numThreads;
 	public final int numGpus;
 	public final int numStreamsPerGpu;
+	
 	public final Type type;
 	
 	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu) {
@@ -68,6 +101,7 @@ public class Parallelism {
 		}
 	}
 	
+	/** get the maximum number of tasks to be be executed in parallel */
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}

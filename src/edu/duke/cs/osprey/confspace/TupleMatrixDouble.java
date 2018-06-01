@@ -5,6 +5,10 @@
 package edu.duke.cs.osprey.confspace;
 
 import java.util.ArrayList;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+import org.apache.commons.collections4.iterators.ArrayIterator;
 
 public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 	
@@ -16,6 +20,10 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     
     public TupleMatrixDouble(ConfSpace cSpace, double pruningInterval, double defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);
+    }
+    
+    public TupleMatrixDouble(SimpleConfSpace confSpace, double pruningInterval, double defaultHigherInteraction) {
+        super(confSpace, pruningInterval, defaultHigherInteraction);
     }
     
     public TupleMatrixDouble(int numPos, int[] numAllowedAtPos, double pruningInterval, double defaultHigherInteraction) {
@@ -72,4 +80,75 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     		}
     	}
     }
+    
+    public void fill(double[] vals) {
+    	ArrayIterator<Double> iter = new ArrayIterator<>(vals);
+    	fill(iter);
+    	assert (iter.hasNext() == false);
+    }
+
+	public void negate() {
+		for (int i=0; i<oneBody.length; i++) {
+			oneBody[i] = -oneBody[i];
+		}
+		for (int i=0; i<pairwise.length; i++) {
+			pairwise[i] = -pairwise[i];
+		}
+	}
+
+	public double sum() {
+    	double sum = 0.0;
+		for (int i=0; i<oneBody.length; i++) {
+			sum += oneBody[i];
+		}
+		for (int i=0; i<pairwise.length; i++) {
+			sum += pairwise[i];
+		}
+		return sum;
+	}
+
+	@Override
+	public String toString() {
+    	return toString(6, (energy) -> {
+			if (energy == Double.POSITIVE_INFINITY) {
+				return String.format("%6s", "inf");
+			} else if (energy == Double.NEGATIVE_INFINITY) {
+				return String.format("%6s", "-inf");
+			} else if (energy == 1000) {
+				return String.format("%6s", "1k");
+			} else if (energy > 1000) {
+				return String.format("%6s", ">1k");
+			} else if (energy == -1000) {
+				return String.format("%6s", "-1k");
+			} else if (energy < -1000) {
+				return String.format("%6s", "<-1k");
+			} else {
+				return String.format("%6.2f", energy);
+			}
+		});
+	}
+
+	public String toString(int cellWidth, int precision) {
+    	return toString(cellWidth, (energy) -> {
+			if (energy == Double.POSITIVE_INFINITY) {
+				return String.format("%" + cellWidth + "s", "inf");
+			} else if (energy == Double.NEGATIVE_INFINITY) {
+				return String.format("%" + cellWidth + "s", "-inf");
+			} else {
+				return String.format("%" + cellWidth + "." + precision + "f", energy);
+			}
+		});
+	}
+
+	public String toStringScientific() {
+		return toString(8, (energy) -> {
+			if (energy == Double.POSITIVE_INFINITY) {
+				return String.format("%6s", "inf");
+			} else if (energy == Double.NEGATIVE_INFINITY) {
+				return String.format("%6s", "-inf");
+			} else {
+				return String.format("%6.1e", energy);
+			}
+		});
+	}
 }

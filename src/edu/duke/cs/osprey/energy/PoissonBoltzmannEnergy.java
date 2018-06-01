@@ -4,10 +4,11 @@
  */
 package edu.duke.cs.osprey.energy;
 
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
 
 /**
  *
@@ -33,7 +34,7 @@ public class PoissonBoltzmannEnergy implements EnergyFunction {
     public double getEnergy() {
         //save the molecule to a PDB file and run Delphi on it
         
-        PDBFileWriter.writePDBFile(m, delphiFolder+"/struct.pdb");
+        PDBIO.writeFile(m, delphiFolder + "/struct.pdb");
         double E = 0;
         
         try{
@@ -45,10 +46,8 @@ public class PoissonBoltzmannEnergy implements EnergyFunction {
             E *= constRT;//convert from thermal energies (Delphi unit) to kcal/mol (OSPREY unit)
             br.close();
         }
-        catch(Exception e){
-            System.err.println(e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
+        catch(Exception ex){
+            throw new Error("can't compute Poisson-Boltzmann energy", ex);
         }
 
         return E;    

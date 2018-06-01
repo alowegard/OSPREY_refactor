@@ -28,6 +28,7 @@ public class ResidueTemplate implements Serializable {
     //any of the information below can be null (i.e., not provided), but if so 
     //then attempts to call it will produce an error
 
+    private static final long serialVersionUID = 4568917747972477569L;
 
     public String name;//e.g. ARG
 
@@ -35,6 +36,8 @@ public class ResidueTemplate implements Serializable {
     //info from here will mostly be copied into any residue in the structure to which this template is assigned
     //(charges, standardized atom names, bonds, etc.)
     public Residue templateRes;
+
+    public InterResBondingTemplate interResBonding;
 
     //dihedral information
     public int numDihedrals = 0;
@@ -55,6 +58,9 @@ public class ResidueTemplate implements Serializable {
     public int numberOfPhiPsiBins = -1;
     // Resolution of phi and psi backbone dihedrals in the backbone dependent rotamer library. For example, in the Dunbrack rotamer library the resolution is 10. 
     public double phiPsiResolution = -1;
+
+    public String CAEquivalent = null;//The name of the atom that the sidechain branches off of (e.g. CA in an amino acid)
+    //if null we can't mutate
     
     public static ResidueTemplate makeFromResidueConfs(Residue ... residues) {
     	return makeFromResidueConfs(Arrays.asList(residues));
@@ -67,7 +73,7 @@ public class ResidueTemplate implements Serializable {
     	ResidueTemplate oldTemplate = firstRes.template;
     	Residue templateRes = new Residue(firstRes);
     	templateRes.copyIntraBondsFrom(firstRes);
-		ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name);
+        ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name, oldTemplate.interResBonding, oldTemplate.CAEquivalent);
     	
     	// copy template info
 		newTemplate.setNumberOfPhiPsiBins(oldTemplate.numberOfPhiPsiBins);
@@ -80,7 +86,7 @@ public class ResidueTemplate implements Serializable {
 		double[][] dihedrals = new double[residues.size()][newTemplate.numDihedrals];
 		for (int i=0; i<residues.size(); i++) {
 			Residue res = residues.get(i);
-			assert (res.template == oldTemplate);
+			assert (res.template.numDihedrals == oldTemplate.numDihedrals);
 			for (int j=0; j<res.getNumDihedrals(); j++) {
 				dihedrals[i][j] = res.getDihedralAngle(j);
 			}
@@ -97,10 +103,13 @@ public class ResidueTemplate implements Serializable {
 		return newTemplate;
     }
 
-    public ResidueTemplate(Residue res, String name){
-        //initializes only with info from a template file.  res won't even have coordinates yet
+    public ResidueTemplate(Residue res, String name, InterResBondingTemplate templ, String CAEquivalent){
+        //initializes only with info from a template file, +interResBonding (and CAEquivalent if want to mutate)
+        //res won't even have coordinates yet
         templateRes = res;
         this.name = name;
+        this.CAEquivalent = CAEquivalent;
+        interResBonding = templ;
     }
 
     //information on dihedrals
@@ -114,7 +123,7 @@ public class ResidueTemplate implements Serializable {
         return dihedralMovingAtoms.get(dihedralNum);
     }
 
-    void computeDihedralMovingAtoms(){
+    public void computeDihedralMovingAtoms(){
         //compute what atoms move when a dihedral is changed
         //Compute from dihedral4Atoms, and write answer in dihedralMovingAtoms
         //we assume atom 4 (from the dihedral4Atoms) moves and the others are fixed; 
@@ -310,5 +319,9 @@ public class ResidueTemplate implements Serializable {
         setRotamericDihedrals(newRotamericDihedrals,0,0);
      }
 
-
+    @Override
+    public String toString() {
+        // there are tons of templates with the same name, so add the hash id too
+        return name + ":" + System.identityHashCode(this);
+    }
 }

@@ -10,12 +10,13 @@ import java.util.List;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.AutoCleanable;
 
 /**
  *
  * @author mhall44
  */
-public interface EnergyFunction extends Serializable {
+public interface EnergyFunction extends Serializable, AutoCleanable {
     
     public abstract double getEnergy();
     
@@ -30,11 +31,23 @@ public interface EnergyFunction extends Serializable {
     	void init(Molecule m, List<DegreeOfFreedom> dofs, DoubleMatrix1D initialX);
     }
     
-    public static interface NeedsCleanup extends EnergyFunction {
-    	void cleanup();
-    }
+    public static interface NeedsCleanup extends EnergyFunction, AutoCleanable {}
     
     public static interface ExplicitChemicalChanges extends EnergyFunction {
     	int handleChemicalChanges();
     }
+    
+    public static class Tools {
+    	
+    	public static void cleanIfNeeded(EnergyFunction efunc) {
+    		if (efunc != null && efunc instanceof EnergyFunction.NeedsCleanup) {
+    			((EnergyFunction.NeedsCleanup)efunc).cleanWithoutCrashing();
+    		}
+    	}
+    }
+
+    @Override
+    default void clean() {
+    	Tools.cleanIfNeeded(this);
+	}
 }

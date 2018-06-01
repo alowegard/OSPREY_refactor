@@ -4,9 +4,12 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  *
@@ -21,6 +24,17 @@ public interface ObjectiveFunction extends Serializable {
 
     //Get constraints on the degrees of freedom
     public DoubleMatrix1D[] getConstraints();
+
+	default DoubleMatrix1D getDOFsCenter() {
+		int n = getNumDOFs();
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
+		for (int d=0; d<n; d++) {
+			double xdmin = getConstraints()[0].get(d);
+			double xdmax = getConstraints()[1].get(d);
+			x.set(d, (xdmin + xdmax)/2);
+		}
+		return x;
+	}
 
     //Set all DOFs to values in x (e.g. in the molecule)
     public void setDOFs(DoubleMatrix1D x);
@@ -52,7 +66,7 @@ public interface ObjectiveFunction extends Serializable {
     //If we're going to initialize full minimization with minimization over a limited number of DOFs,
     //these are the indices of the DOFs that will be fixed
 
-    public static class OneDof {
+    public static class OneDof implements Serializable {
 		
 		private ObjectiveFunction f;
 		private int d;
@@ -91,9 +105,50 @@ public interface ObjectiveFunction extends Serializable {
 		}
 	}
 	
-	public static class DofBounds {
+	public static class DofBounds implements Serializable {
 		
 		private DoubleMatrix1D[] bounds;
+		
+		public static DofBounds concatenate(DofBounds ... bounds) {
+			return concatenate(Arrays.asList(bounds));
+		}
+		
+		public static DofBounds concatenate(List<DofBounds> subBoundsList) {
+			
+			// allocate the dof bounds
+			int size = 0;
+			for (DofBounds subBounds : subBoundsList) {
+				if (subBounds != null) {
+					size += subBounds.size();
+				}
+			}
+			DofBounds bounds = new DofBounds(size);
+			
+			// copy the bounds
+			int i=0;
+			for (DofBounds subBounds : subBoundsList) {
+				if (subBounds != null) {
+					for (int j=0; j<subBounds.size(); j++) {
+						bounds.set(i++, subBounds.getMin(j), subBounds.getMax(j));
+					}
+				}
+			}
+			return bounds;
+		}
+		
+		public DofBounds(int numDofs) {
+			bounds = new DoubleMatrix1D[] {
+				DoubleFactory1D.dense.make(numDofs),
+				DoubleFactory1D.dense.make(numDofs)
+			};
+		}
+		
+		public DofBounds(DofBounds other) {
+			bounds = new DoubleMatrix1D[] {
+				other.bounds[0].copy(),
+				other.bounds[1].copy()
+			};
+		}
 		
 		public DofBounds(DoubleMatrix1D[] bounds) {
 			this.bounds = bounds;
@@ -131,6 +186,11 @@ public interface ObjectiveFunction extends Serializable {
 			for (int d=0; d<size(); d++) {
 				out.set(d, getCenter(d));
 			}
+		}
+		
+		public void set(int d, double min, double max) {
+			bounds[0].set(d, min);
+			bounds[1].set(d, max);
 		}
 		
 		public double clamp(int d, double xd) {
